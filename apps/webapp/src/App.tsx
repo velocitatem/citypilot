@@ -508,6 +508,17 @@ export default function App() {
   return (
     <div className="app">
       <aside className={`sidebar ${sidebarOpen ? "" : "collapsed"}`}>
+        <div className="sidebar-brand">
+          <div className="sidebar-brand-mark">
+            <CityIcon size={16} />
+          </div>
+          {sidebarOpen && (
+            <div className="sidebar-brand-text">
+              <span className="sidebar-brand-title">{env.appTitle}</span>
+              <span className="sidebar-brand-sub">{env.appSubtitle}</span>
+            </div>
+          )}
+        </div>
         <div className="sidebar-head">
           {sidebarOpen && (
             <button className="new-chat" onClick={startNewChat}>
@@ -552,18 +563,6 @@ export default function App() {
       </aside>
 
       <div className="main">
-        <header className="header">
-          <div className="brand">
-            <div className="brand-mark">
-              <CityIcon />
-            </div>
-            <div className="brand-text">
-              <span className="brand-title">{env.appTitle}</span>
-              <span className="brand-sub">{env.appSubtitle}</span>
-            </div>
-          </div>
-        </header>
-
         <div className={`workspace ${run ? "split" : ""}`}>
           <main className="messages">
             {active.messages.map((m) => (
