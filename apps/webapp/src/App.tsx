@@ -597,6 +597,7 @@ export default function App() {
             />
             <button onClick={send} disabled={composerBusy || !input.trim()} aria-label="Send">
               <SendIcon />
+              <span>发送</span>
             </button>
           </div>
         </div>
