@@ -4,6 +4,13 @@ CREATE TABLE IF NOT EXISTS sessions (
     last_seen  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+-- Drop legacy columns that no longer exist in the simplified auth model
+ALTER TABLE sessions DROP COLUMN IF EXISTS user_id;
+ALTER TABLE conversations DROP COLUMN IF EXISTS user_id;
+ALTER TABLE agent_runs DROP COLUMN IF EXISTS user_id;
+ALTER TABLE agent_runs DROP COLUMN IF EXISTS company_id;
+ALTER TABLE agent_runs DROP COLUMN IF EXISTS role;
+
 CREATE TABLE IF NOT EXISTS conversations (
     conversation_id TEXT PRIMARY KEY,
     session_id      TEXT NOT NULL REFERENCES sessions(session_id) ON DELETE CASCADE,
