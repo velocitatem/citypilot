@@ -70,10 +70,9 @@ html, body, #root {
   width: 30px;
   height: 30px;
   border-radius: 4px;
-  background: var(--accent-gold);
+  background: #ffffff;
   display: grid;
   place-items: center;
-  color: #1a0000;
   flex-shrink: 0;
 }
 
@@ -280,10 +279,9 @@ html, body, #root {
   width: 28px;
   height: 28px;
   border-radius: 3px;
-  background: var(--accent);
+  background: #ffffff;
   display: grid;
   place-items: center;
-  color: white;
   flex-shrink: 0;
 }
 
