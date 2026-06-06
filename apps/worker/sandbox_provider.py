@@ -21,7 +21,7 @@ SANDBOX_SKILLS_DIR = "/home/daytona/skills"
 
 _HOST_SKILLS_DIR = Path(__file__).resolve().parent.parent / "sandbox" / "skills"
 
-_PIP_DEPS = "duckdb pandas weasyprint python-docx xlsxwriter"
+_PIP_DEPS = "duckdb pandas weasyprint python-docx xlsxwriter plotly"
 _APT_DEPS = "libpango-1.0-0 libpangoft2-1.0-0 libcairo2 fonts-dejavu"
 
 
