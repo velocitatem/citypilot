@@ -1,0 +1,23 @@
+[project]
+name = "invertix-backend"
+version = "0.1.0"
+description = "FastAPI backend: submits agent runs, streams events, serves artifacts."
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi==0.115.6",
+    "uvicorn[standard]==0.32.1",
+    "pydantic==2.10.3",
+    "pydantic-settings==2.7.0",
+    "sqlalchemy==2.0.36",
+    "psycopg[binary]==3.2.3",
+    "redis==5.2.1",
+    "celery==5.4.0",
+    "itsdangerous==2.2.0",
+    "python-multipart==0.0.20",
+    "minio==7.2.12",
+    "sse-starlette==2.2.1",
+    "openai==2.38.0",
+]
+
+[tool.uv]
+package = false

@@ -1,0 +1,20 @@
+[project]
+name = "invertix-sandbox"
+version = "0.1.0"
+description = "Sandbox runtime: code execution + document generation tools for the agent."
+requires-python = ">=3.12"
+dependencies = [
+    "pandas==2.2.3",
+    "duckdb==1.1.3",
+    "openpyxl==3.1.5",
+    "xlsxwriter==3.2.0",
+    "python-docx==1.1.2",
+    "reportlab==4.2.5",
+    "weasyprint==63.1",
+    "matplotlib==3.9.3",
+    "jinja2==3.1.4",
+    "pydantic==2.10.3",
+]
+
+[tool.uv]
+package = false
