@@ -1,4 +1,4 @@
-"""Per-user chat persistence. Conversation ownership = user_id (tenant-scoped)."""
+"""Per-session chat persistence."""
 from __future__ import annotations
 
 import uuid
@@ -18,33 +18,33 @@ def _title_from_text(content: str) -> str:
     return (snippet[:TITLE_MAX].rstrip() + "…") if len(snippet) > TITLE_MAX else (snippet or "New chat")
 
 
-def create_conversation(user_id: str, title: Optional[str] = None) -> str:
+def create_conversation(session_id: str, title: Optional[str] = None) -> str:
     conversation_id = str(uuid.uuid4())
     with get_engine().begin() as conn:
         conn.execute(
             text(
                 """
-                INSERT INTO conversations (conversation_id, user_id, title)
-                VALUES (:cid, :uid, :title)
+                INSERT INTO conversations (conversation_id, session_id, title)
+                VALUES (:cid, :sid, :title)
                 """
             ),
-            {"cid": conversation_id, "uid": user_id, "title": title or "New chat"},
+            {"cid": conversation_id, "sid": session_id, "title": title or "New chat"},
         )
     return conversation_id
 
 
-def list_conversations(user_id: str) -> list[dict]:
+def list_conversations(session_id: str) -> list[dict]:
     with get_engine().begin() as conn:
         rows = conn.execute(
             text(
                 """
                 SELECT conversation_id, title, created_at, updated_at
                 FROM conversations
-                WHERE user_id = :uid
+                WHERE session_id = :sid
                 ORDER BY updated_at DESC
                 """
             ),
-            {"uid": user_id},
+            {"sid": session_id},
         ).all()
     return [
         {
@@ -57,17 +57,17 @@ def list_conversations(user_id: str) -> list[dict]:
     ]
 
 
-def get_conversation(conversation_id: str, user_id: str) -> dict:
+def get_conversation(conversation_id: str, session_id: str) -> dict:
     with get_engine().begin() as conn:
         head = conn.execute(
             text(
                 """
                 SELECT conversation_id, title, created_at, updated_at
                 FROM conversations
-                WHERE conversation_id = :cid AND user_id = :uid
+                WHERE conversation_id = :cid AND session_id = :sid
                 """
             ),
-            {"cid": conversation_id, "uid": user_id},
+            {"cid": conversation_id, "sid": session_id},
         ).first()
         if head is None:
             raise HTTPException(status_code=404, detail="conversation not found")
@@ -102,13 +102,13 @@ def get_conversation(conversation_id: str, user_id: str) -> dict:
     }
 
 
-def assert_owner(conversation_id: str, user_id: str) -> None:
+def assert_owner(conversation_id: str, session_id: str) -> None:
     with get_engine().begin() as conn:
         row = conn.execute(
             text(
-                "SELECT 1 FROM conversations WHERE conversation_id = :cid AND user_id = :uid"
+                "SELECT 1 FROM conversations WHERE conversation_id = :cid AND session_id = :sid"
             ),
-            {"cid": conversation_id, "uid": user_id},
+            {"cid": conversation_id, "sid": session_id},
         ).first()
     if row is None:
         raise HTTPException(status_code=404, detail="conversation not found")
@@ -158,7 +158,6 @@ def append_message(
 
 
 def load_history(conversation_id: str) -> list[dict]:
-    """Return (role, content) pairs in chronological order, mapped to OpenAI roles."""
     with get_engine().begin() as conn:
         rows = conn.execute(
             text(

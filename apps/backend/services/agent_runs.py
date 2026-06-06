@@ -29,16 +29,13 @@ def enqueue_agent_run(
             text(
                 """
                 INSERT INTO agent_runs
-                    (agent_run_id, session_id, user_id, company_id, role, conversation_id, prompt, status)
-                VALUES (:rid, :sid, :uid, :cid, :role, :convid, :prompt, 'queued')
+                    (agent_run_id, session_id, conversation_id, prompt, status)
+                VALUES (:rid, :sid, :convid, :prompt, 'queued')
                 """
             ),
             {
                 "rid": agent_run_id,
                 "sid": session.session_id,
-                "uid": session.user_id,
-                "cid": session.company_id,
-                "role": session.role,
                 "convid": conversation_id,
                 "prompt": prompt,
             },
@@ -48,9 +45,6 @@ def enqueue_agent_run(
         "agent.run",
         kwargs={
             "agent_run_id": agent_run_id,
-            "user_id": session.user_id,
-            "company_id": session.company_id,
-            "role": session.role,
             "prompt": prompt,
         },
     )
