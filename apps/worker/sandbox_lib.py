@@ -73,6 +73,14 @@ def create_xlsx_workbook(filename: str, sheets: dict[str, list[dict]]):
     return str(out)
 
 
+def create_plotly_chart(filename: str, figure: dict):
+    import plotly.graph_objects as go
+    out = _artifact_path("plots", filename if filename.endswith(".html") else f"{filename}.html")
+    fig = go.Figure(figure)
+    fig.write_html(str(out), include_plotlyjs="cdn", full_html=True)
+    return str(out)
+
+
 COMMANDS = {
     "list_tables": list_tables,
     "describe_table": describe_table,
@@ -80,6 +88,7 @@ COMMANDS = {
     "create_pdf_report": create_pdf_report,
     "create_docx_report": create_docx_report,
     "create_xlsx_workbook": create_xlsx_workbook,
+    "create_plotly_chart": create_plotly_chart,
 }
 
 

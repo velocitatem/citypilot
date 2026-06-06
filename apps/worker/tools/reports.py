@@ -20,4 +20,36 @@ def report_tools(ctx: RunContext) -> list:
         """Write an .xlsx inside the sandbox under artifacts/xlsx/. `sheets` maps name -> rows."""
         return call_sandbox(ctx, "create_xlsx_workbook", {"filename": filename, "sheets": sheets})
 
-    return [create_pdf_report, create_docx_report, create_xlsx_workbook]
+    @tool
+    def create_plotly_chart(filename: str, figure: dict) -> str:
+        """Render an interactive Plotly chart and save it as artifacts/plots/<filename>.html.
+
+        `figure` must be a Plotly figure dict with two keys:
+          - "data": list of trace dicts. Each trace needs at minimum "type" and the
+            axis/value fields for that type. Common types and their required fields:
+              "bar"       → x (categories), y (values)
+              "scatter"   → x, y; add mode="lines"|"markers"|"lines+markers"
+              "pie"       → labels, values
+              "heatmap"   → x, y, z (2-D list)
+              "histogram" → x (raw values)
+              "box"       → y (raw values), optional x for grouping
+            Optional on every trace: name (legend label), marker (color/size dict).
+          - "layout": dict controlling appearance. Useful keys:
+              title (str or {text, font}), xaxis/yaxis ({title, type, tickformat}),
+              barmode ("group"|"stack"), colorscale, legend, width, height.
+
+        Example — grouped bar chart:
+        {
+          "data": [
+            {"type": "bar", "name": "2024", "x": ["Jan","Feb","Mar"], "y": [10,14,9]},
+            {"type": "bar", "name": "2025", "x": ["Jan","Feb","Mar"], "y": [12,11,15]}
+          ],
+          "layout": {"title": "Monthly Sales", "barmode": "group",
+                     "xaxis": {"title": "Month"}, "yaxis": {"title": "Units"}}
+        }
+
+        Returns the sandbox path to the saved .html file.
+        """
+        return call_sandbox(ctx, "create_plotly_chart", {"filename": filename, "figure": figure})
+
+    return [create_pdf_report, create_docx_report, create_xlsx_workbook, create_plotly_chart]
