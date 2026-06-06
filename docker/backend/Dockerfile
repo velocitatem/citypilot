@@ -16,10 +16,7 @@ RUN uv sync --no-install-project
 COPY apps/backend /app
 COPY scripts/init.sql /opt/seed/init.sql
 COPY scripts/seed.py /opt/seed/seed.py
-COPY data.zip /opt/seed/data.zip
-
-ENV SEED_DATA_ZIP=/opt/seed/data.zip \
-    SEED_INIT_SQL=/opt/seed/init.sql \
+ENV SEED_INIT_SQL=/opt/seed/init.sql \
     SEED_MODULE_DIR=/opt/seed
 
 EXPOSE 8000

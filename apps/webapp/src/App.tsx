@@ -11,7 +11,6 @@ import {
   type ConversationSummary,
   type Message,
   type RunArtifact,
-  type UserOption,
 } from "./api";
 import { useRun, type RunProjection, type ToolCall } from "./runStore";
 import { env } from "./env";
@@ -54,10 +53,13 @@ function replaceUrlConvId(id: string) {
   window.history.replaceState({}, "", url.toString());
 }
 
-function BoltIcon({ size = 18 }: { size?: number }) {
+function CityIcon({ size = 18 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <path d="M13 2 4 14h7l-1 8 9-12h-7l1-8z" fill="currentColor" />
+      <path
+        d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"
+        fill="currentColor"
+      />
     </svg>
   );
 }
@@ -108,18 +110,88 @@ function SpinnerWithVerb() {
   );
 }
 
-function renderBubbleText(text: string) {
-  return text.split("\n").map((line, i) => {
-    const m = line.match(/^\*\*([^*]+):\*\*\s*(.*)$/);
-    if (m) {
-      return (
-        <div key={i}>
-          <strong>{m[1]}:</strong> {m[2]}
-        </div>
-      );
-    }
-    return <div key={i}>{line || " "}</div>;
+function renderInline(text: string): React.ReactNode[] {
+  const parts = text.split(/(\*\*[^*]+\*\*|`[^`]+`)/);
+  return parts.map((p, i) => {
+    if (p.startsWith("**") && p.endsWith("**")) return <strong key={i}>{p.slice(2, -2)}</strong>;
+    if (p.startsWith("`") && p.endsWith("`")) return <code key={i} className="inline-code">{p.slice(1, -1)}</code>;
+    return p;
   });
+}
+
+function renderMarkdown(text: string) {
+  const lines = text.split("\n");
+  const out: React.ReactNode[] = [];
+  let listItems: string[] = [];
+  let inCodeBlock = false;
+  let codeLines: string[] = [];
+
+  const flushList = () => {
+    if (listItems.length === 0) return;
+    out.push(
+      <ul key={`ul-${out.length}`}>
+        {listItems.map((li, i) => <li key={i}>{renderInline(li)}</li>)}
+      </ul>
+    );
+    listItems = [];
+  };
+
+  const flushCode = () => {
+    if (codeLines.length === 0) return;
+    out.push(<pre key={`pre-${out.length}`}><code>{codeLines.join("\n")}</code></pre>);
+    codeLines = [];
+  };
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+
+    if (line.startsWith("```")) {
+      if (inCodeBlock) {
+        flushCode();
+        inCodeBlock = false;
+      } else {
+        flushList();
+        inCodeBlock = true;
+      }
+      continue;
+    }
+
+    if (inCodeBlock) {
+      codeLines.push(line);
+      continue;
+    }
+
+    const h1 = line.match(/^#\s+(.+)/);
+    const h2 = line.match(/^##\s+(.+)/);
+    const h3 = line.match(/^###\s+(.+)/);
+    const li = line.match(/^[-*]\s+(.+)/);
+    const ol = line.match(/^\d+\.\s+(.+)/);
+    const hr = /^---+$/.test(line.trim());
+
+    if (h1) {
+      flushList();
+      out.push(<h2 key={i} className="md-h1">{renderInline(h1[1])}</h2>);
+    } else if (h2) {
+      flushList();
+      out.push(<h3 key={i} className="md-h2">{renderInline(h2[1])}</h3>);
+    } else if (h3) {
+      flushList();
+      out.push(<h4 key={i} className="md-h3">{renderInline(h3[1])}</h4>);
+    } else if (li || ol) {
+      listItems.push((li || ol)![1]);
+    } else if (hr) {
+      flushList();
+      out.push(<hr key={i} className="md-hr" />);
+    } else {
+      flushList();
+      const content = renderInline(line);
+      out.push(<div key={i} className={line.trim() ? "" : "md-blank"}>{line.trim() ? content : " "}</div>);
+    }
+  }
+
+  flushList();
+  flushCode();
+  return out;
 }
 
 function formatArgs(args: unknown): string {
@@ -196,11 +268,8 @@ function RunPane({ run }: { run: RunProjection }) {
   return (
     <aside className="run-pane">
       <div className="run-head">
-        <span className="run-title">Research agent</span>
+        <span className="run-title">City intelligence agent</span>
         <span className={`run-status status-${run.status}`}>{run.status}</span>
-      </div>
-      <div className="run-sub">
-        run {run.runId} · <span className={`run-conn conn-${run.connection}`}>{run.connection}</span>
       </div>
       <div className="run-body">
         {timeline.length === 0 ? (
@@ -211,7 +280,7 @@ function RunPane({ run }: { run: RunProjection }) {
               <ToolRow key={`t-${item.tool.id}`} t={item.tool} />
             ) : (
               <div key={`m-${i}-${item.ts}`} className="run-message">
-                {renderBubbleText(item.text)}
+                {renderMarkdown(item.text)}
               </div>
             )
           )
@@ -219,7 +288,7 @@ function RunPane({ run }: { run: RunProjection }) {
         {run.error && <div className="run-error">{run.error}</div>}
         {artifacts.length > 0 && (
           <div className="run-artifacts">
-            <div className="run-artifacts-title">Artifacts</div>
+            <div className="run-artifacts-title">Outputs</div>
             <div className="run-artifacts-list">
               {artifacts.map((a) => (
                 <button
@@ -249,18 +318,12 @@ export default function App() {
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [users, setUsers] = useState<UserOption[]>([]);
-  const [currentUserId, setCurrentUserId] = useState<string>("");
 
   const refreshConversations = useCallback(async () => {
     const list = await fetchConversations();
     setConversations(list);
   }, []);
 
-  // Holds the in-flight assistant turn so we can re-attach it after the user
-  // navigates away and back. The backend only persists the assistant message
-  // once the stream completes (apps/backend/services/chat.py), so without this
-  // a mid-stream `loadConversation` would show only the user message.
   const pendingRef = useRef<{
     originId: string;
     agentId: string;
@@ -272,7 +335,6 @@ export default function App() {
   const loadConversation = useCallback(async (id: string) => {
     const detail = await fetchConversation(id);
     if (!detail) {
-      // Not found / not owned — fall back to blank chat and clear URL
       setActive(blankChat());
       writeUrlConvId(null);
       return;
@@ -284,9 +346,6 @@ export default function App() {
       ts: new Date(m.created_at).getTime(),
       agentRunId: m.agent_run_id ?? undefined,
     }));
-    // If a stream is still in flight for this conversation, the assistant
-    // turn isn't in the DB yet — splice the local in-flight copy in so the
-    // user sees what's accumulated so far.
     const pending = pendingRef.current;
     if (pending && pending.originId === detail.conversation_id) {
       messages.push({
@@ -311,16 +370,12 @@ export default function App() {
 
   useEffect(() => {
     (async () => {
-      const list = await fetchUsers();
-      setUsers(list);
-      const me = await fetchMe();
-      let userId = me?.user_id;
-      if (!userId && list[0]) {
-        const sess = await login(list[0].user_id);
-        userId = sess?.user_id;
+      let me = await fetchMe();
+      if (!me) {
+        const list = await fetchUsers();
+        if (list[0]) me = await login(list[0].user_id);
       }
-      if (userId) {
-        setCurrentUserId(userId);
+      if (me) {
         await refreshConversations();
         const urlId = readUrlConvId();
         if (urlId) await loadConversation(urlId);
@@ -338,20 +393,6 @@ export default function App() {
     return () => window.removeEventListener("popstate", onPop);
   }, [loadConversation]);
 
-  async function switchUser(user_id: string) {
-    const sess = await login(user_id);
-    if (sess) {
-      // The in-flight stream belonged to the previous user's session; drop
-      // its local state so it can't re-attach to a chat the new user owns.
-      pendingRef.current = null;
-      setBusy(false);
-      setCurrentUserId(sess.user_id);
-      setActive(blankChat());
-      writeUrlConvId(null);
-      await refreshConversations();
-    }
-  }
-
   const endRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -359,10 +400,7 @@ export default function App() {
   }, [active.messages.length]);
 
   const run = useRun(active.runId);
-  // Composer is busy only for the chat the in-flight send originated in.
-  // We detect "this chat owns the pending send" by the agent placeholder's id
-  // being present in this chat's message list — survives navigation away/back
-  // because loadConversation re-splices it from pendingRef.
+
   const pendingAgentId = pendingRef.current?.agentId;
   const composerBusy =
     busy &&
@@ -383,7 +421,6 @@ export default function App() {
     };
     const agentId = crypto.randomUUID();
     const originId = active.conversationId ?? `pending:${crypto.randomUUID()}`;
-    // Closure-captured so concurrent sends (if any) can't corrupt each other.
     const myPending = { originId, agentId, agentText: "" } as {
       originId: string;
       agentId: string;
@@ -402,8 +439,6 @@ export default function App() {
       ],
     }));
 
-    // Apply to the active view only if it's still the originating chat AND
-    // this pending hasn't been superseded by a newer send.
     const applyIfCurrent = (updater: (c: ActiveChat) => ActiveChat) => {
       if (pendingRef.current !== myPending) return;
       setActive((c) => {
@@ -518,29 +553,13 @@ export default function App() {
 
       <div className="main">
         <header className="header">
-          <div />
-          <div className="user-switcher">
-            <label htmlFor="user-select">Acting as</label>
-            <select
-              id="user-select"
-              value={currentUserId}
-              onChange={(e) => switchUser(e.target.value)}
-            >
-              {users.length === 0 && <option value="">(no users)</option>}
-              {users.map((u) => (
-                <option key={u.user_id} value={u.user_id}>
-                  {u.company_name} — {u.role} ({u.user_id})
-                </option>
-              ))}
-            </select>
-          </div>
           <div className="brand">
-            <div className="brand-text right">
+            <div className="brand-mark">
+              <CityIcon />
+            </div>
+            <div className="brand-text">
               <span className="brand-title">{env.appTitle}</span>
               <span className="brand-sub">{env.appSubtitle}</span>
-            </div>
-            <div className="brand-mark">
-              <BoltIcon />
             </div>
           </div>
         </header>
@@ -553,7 +572,7 @@ export default function App() {
                   {m.role === "agent" && !m.text ? (
                     <SpinnerWithVerb />
                   ) : (
-                    renderBubbleText(m.text)
+                    renderMarkdown(m.text)
                   )}
                   <span className="time">{fmtTime(m.ts)}</span>
                 </div>
@@ -568,13 +587,13 @@ export default function App() {
         <div className="composer">
           <div className="composer-inner">
             <div className="composer-icon">
-              <BoltIcon size={16} />
+              <CityIcon size={16} />
             </div>
             <input
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={onKey}
-              placeholder="Ask about plant performance, maintenance, or safety…"
+              placeholder="Ask about city data, districts, demographics, or planning…"
               disabled={composerBusy}
             />
             <button onClick={send} disabled={composerBusy || !input.trim()} aria-label="Send">

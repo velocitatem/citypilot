@@ -1,7 +1,7 @@
-"""query_energy_db(sql) — run a read-only SQL query against the role-filtered DuckDB.
+"""query_city_db(sql) — run a read-only SQL query against the role-filtered DuckDB.
 
 Usage (from agent_runner via `docker exec`):
-    echo "<SQL>" | python /workspace/tools/query_energy_db.py
+    echo "<SQL>" | python /workspace/tools/query_city_db.py
 
 Output: JSON array of row objects on stdout. Errors go to stderr with non-zero exit.
 """

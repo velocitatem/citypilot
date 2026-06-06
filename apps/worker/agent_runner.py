@@ -68,7 +68,7 @@ if __name__ == "__main__":
     role = os.environ.get("AGENT_ROLE", "company_admin")
     prompt = os.environ.get(
         "AGENT_PROMPT",
-        "List the plants and their capacities, then summarize into a pdf and create a line chart of monthly costs in that pdf. Put all outputs into the artifacts/ directory.",
+        "List the available datasets, summarize what city data is present, and produce a brief PDF overview report. Put all outputs into the artifacts/ directory.",
     )
 
     package_dir = build_role_filtered_package(agent_run_id, user_id, company_id, role)

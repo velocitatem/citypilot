@@ -16,6 +16,6 @@ const rawApiBase = import.meta.env.VITE_API_BASE_URL ?? import.meta.env.VITE_BAC
 
 export const env = {
   apiBase: normalizeApiBase(rawApiBase),
-  appTitle: import.meta.env.VITE_APP_TITLE ?? "PowerGrid AI",
-  appSubtitle: import.meta.env.VITE_APP_SUBTITLE ?? "Plant Intelligence Agent",
+  appTitle: import.meta.env.VITE_APP_TITLE ?? "CityPilot",
+  appSubtitle: import.meta.env.VITE_APP_SUBTITLE ?? "HK Policy Intelligence Agent",
 };
