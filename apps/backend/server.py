@@ -14,12 +14,10 @@ from sqlalchemy import text
 
 from db import get_engine
 from routes import router
-from startup_seed import seed_if_empty
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    seed_if_empty()
     yield
 
 
