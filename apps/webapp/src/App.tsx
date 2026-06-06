@@ -13,6 +13,7 @@ import {
 import { useRun, type RunProjection, type ToolCall } from "./runStore";
 import { env } from "./env";
 import spinnerUrl from "./spinner.svg";
+import bauhiniaUrl from "./bauhinia.svg";
 import spinnerVerbs from "./spinner_verbs.json";
 
 const fmtTime = (ts: number) =>
@@ -52,14 +53,7 @@ function replaceUrlConvId(id: string) {
 }
 
 function CityIcon({ size = 18 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <path
-        d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"
-        fill="currentColor"
-      />
-    </svg>
-  );
+  return <img src={bauhiniaUrl} width={size} height={size} alt="Bauhinia" />;
 }
 
 function SendIcon() {
