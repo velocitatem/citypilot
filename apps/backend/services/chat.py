@@ -83,11 +83,11 @@ def chat_stream(
         return
 
     if payload.conversation_id:
-        assert_owner(payload.conversation_id, session.user_id)
+        assert_owner(payload.conversation_id, session.session_id)
         conversation_id = payload.conversation_id
         created = False
     else:
-        conversation_id = create_conversation(session.user_id)
+        conversation_id = create_conversation(session.session_id)
         created = True
 
     history = load_history(conversation_id)

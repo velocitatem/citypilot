@@ -9,7 +9,6 @@ from db import get_engine
 
 
 def _parse_minio_endpoint(raw: str) -> tuple[str, bool]:
-    # MinIO SDK requires bare host[:port]; strip scheme/path if present.
     if "://" in raw:
         parsed = urlparse(raw)
         return parsed.netloc, parsed.scheme == "https"
@@ -27,8 +26,6 @@ class ArtifactRef:
 
 
 class ArtifactStore:
-    """Thin wrapper over MinIO for storing/retrieving agent outputs."""
-
     def __init__(self) -> None:
         self.bucket = os.environ.get("MINIO_BUCKET", "artifacts")
         endpoint, inferred_secure = _parse_minio_endpoint(os.environ["MINIO_ENDPOINT"])
@@ -48,7 +45,7 @@ class ArtifactStore:
     def object_key(self, run_id: str, artifact_id: str, filename: str) -> str:
         return f"{run_id}/{artifact_id}/{filename}"
 
-    def list_for_run(self, run_id: str, user_id: str) -> list[ArtifactRef]:
+    def list_for_run(self, run_id: str, session_id: str) -> list[ArtifactRef]:
         with get_engine().begin() as conn:
             rows = conn.execute(
                 text(
@@ -56,11 +53,11 @@ class ArtifactStore:
                     SELECT a.artifact_id, a.agent_run_id, a.filename, a.content_type, a.size_bytes, a.object_key
                     FROM artifacts a
                     JOIN agent_runs r ON r.agent_run_id = a.agent_run_id
-                    WHERE a.agent_run_id = :rid AND r.user_id = :uid
+                    WHERE a.agent_run_id = :rid AND r.session_id = :sid
                     ORDER BY a.created_at, a.artifact_id
                     """
                 ),
-                {"rid": run_id, "uid": user_id},
+                {"rid": run_id, "sid": session_id},
             ).all()
         return [
             ArtifactRef(
@@ -74,7 +71,7 @@ class ArtifactStore:
             for r in rows
         ]
 
-    def get(self, run_id: str, artifact_id: str, user_id: str) -> ArtifactRef | None:
+    def get(self, run_id: str, artifact_id: str, session_id: str) -> ArtifactRef | None:
         with get_engine().begin() as conn:
             row = conn.execute(
                 text(
@@ -82,10 +79,10 @@ class ArtifactStore:
                     SELECT a.artifact_id, a.agent_run_id, a.filename, a.content_type, a.size_bytes, a.object_key
                     FROM artifacts a
                     JOIN agent_runs r ON r.agent_run_id = a.agent_run_id
-                    WHERE a.agent_run_id = :rid AND a.artifact_id = :aid AND r.user_id = :uid
+                    WHERE a.agent_run_id = :rid AND a.artifact_id = :aid AND r.session_id = :sid
                     """
                 ),
-                {"rid": run_id, "aid": artifact_id, "uid": user_id},
+                {"rid": run_id, "aid": artifact_id, "sid": session_id},
             ).first()
         if row is None:
             return None

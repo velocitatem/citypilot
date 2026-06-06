@@ -5,9 +5,7 @@ import {
   fetchConversation,
   fetchConversations,
   fetchRunArtifacts,
-  fetchUsers,
   fetchMe,
-  login,
   type ConversationSummary,
   type Message,
   type RunArtifact,
@@ -370,11 +368,7 @@ export default function App() {
 
   useEffect(() => {
     (async () => {
-      let me = await fetchMe();
-      if (!me) {
-        const list = await fetchUsers();
-        if (list[0]) me = await login(list[0].user_id);
-      }
+      const me = await fetchMe();
       if (me) {
         await refreshConversations();
         const urlId = readUrlConvId();

@@ -60,6 +60,7 @@ Anything written **before** kickoff that we brought into this project: prior per
 |---|---|---|---|
 | Web app frontend/backend scaffold | Personal tech stack "dstack" — a generic scaffold for hackathon-style projects | ~30% of web app structure | Personal/proprietary |
 | CRUD route boilerplate | Personal tech stack "dstack" — standard CRUD patterns from the same stack | Several standard create/read/update/delete routes | Personal/proprietary |
+| LLM conversation management patterns | Personal tech stack "dstack" — previously used patterns for managing chat sessions, message history, and context handling with LLMs; aggregated from dstack by Claude Code via a genesis prompt and tailored to this solution | Conversation threading, history storage, context windowing | Personal/proprietary |
 
 ---
 
