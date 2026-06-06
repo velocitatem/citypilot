@@ -32,7 +32,10 @@ class SandboxHandle:
     backend: DaytonaSandbox   # deepagents backend
 
 
-def provision_sandbox(agent_run_id: str, package_dir: Path) -> SandboxHandle:
+def provision_sandbox(agent_run_id: str) -> SandboxHandle:
+    import tempfile
+    workspace = Path(tempfile.mkdtemp(prefix=f"run_{agent_run_id}_"))
+
     client = Daytona()
     sandbox = client.create(
         CreateSandboxFromSnapshotParams(
@@ -45,12 +48,7 @@ def provision_sandbox(agent_run_id: str, package_dir: Path) -> SandboxHandle:
         f"mkdir -p {SANDBOX_DATA_DIR} {SANDBOX_ARTIFACTS_DIR} {SANDBOX_LIB_DIR} {SANDBOX_SKILLS_DIR}"
     )
 
-    # Upload ETL package + the in-sandbox tool runner + skill bundles.
     uploads: list[tuple[str, bytes]] = []
-    for p in (package_dir / "data").glob("**/*"):
-        if p.is_file():
-            rel = p.relative_to(package_dir / "data")
-            uploads.append((f"{SANDBOX_DATA_DIR}/{rel}", p.read_bytes()))
     lib_src = Path(__file__).parent / "sandbox_lib.py"
     uploads.append((f"{SANDBOX_LIB_DIR}/sandbox_lib.py", lib_src.read_bytes()))
     for p in _HOST_SKILLS_DIR.glob("**/*"):
@@ -59,17 +57,14 @@ def provision_sandbox(agent_run_id: str, package_dir: Path) -> SandboxHandle:
             uploads.append((f"{SANDBOX_SKILLS_DIR}/{rel}", p.read_bytes()))
     backend.upload_files(uploads)
 
-    # Install runtime deps. PYTHONPATH so `python -m sandbox_lib` works.
     backend.execute(
         f"sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends {_APT_DEPS}"
     )
     backend.execute(f"pip install --quiet {_PIP_DEPS}")
     backend.execute(f"echo 'export PYTHONPATH={SANDBOX_LIB_DIR}' >> ~/.bashrc")
 
-    # Wrap execute so every tool call sees PYTHONPATH (bashrc doesn't apply
-    # to non-interactive shells).
     _wrap_pythonpath(backend)
-    return SandboxHandle(workspace=package_dir, sandbox=sandbox, backend=backend)
+    return SandboxHandle(workspace=workspace, sandbox=sandbox, backend=backend)
 
 
 def _wrap_pythonpath(backend: DaytonaSandbox) -> None:

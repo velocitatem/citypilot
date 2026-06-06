@@ -13,44 +13,9 @@ export const apiUrl = (path: string) => {
   return new URL(path, `${env.apiBase}/`).toString();
 };
 
-export type UserOption = {
-  user_id: string;
-  role: string;
-  company_id: string;
-  company_name: string;
-};
-
 export type SessionInfo = {
   session_id: string;
-  user_id: string;
-  company_id: string;
-  role: string;
 };
-
-export async function fetchUsers(): Promise<UserOption[]> {
-  try {
-    const res = await fetch(apiUrl("/api/users"), { credentials: "include" });
-    if (!res.ok) return [];
-    return await res.json();
-  } catch {
-    return [];
-  }
-}
-
-export async function login(user_id: string): Promise<SessionInfo | null> {
-  try {
-    const res = await fetch(apiUrl("/api/login"), {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
-      body: JSON.stringify({ user_id }),
-    });
-    if (!res.ok) return null;
-    return await res.json();
-  } catch {
-    return null;
-  }
-}
 
 export async function fetchMe(): Promise<SessionInfo | null> {
   try {

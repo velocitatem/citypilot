@@ -56,8 +56,8 @@ def _object_key(run_id: str, artifact_id: str, filename: str) -> str:
     return f"{run_id}/{artifact_id}/{filename}"
 
 
-def sync_run_artifacts(agent_run_id: str, package_dir: Path) -> int:
-    root = package_dir / "artifacts"
+def sync_run_artifacts(agent_run_id: str, workspace: Path) -> int:
+    root = workspace / "artifacts"
     if not root.exists():
         return 0
 

@@ -22,15 +22,9 @@ def run_agent(
     agent_run_id: str,
     sandbox: SandboxHandle,
     prompt: str,
-    user_id: str,
-    company_id: str,
-    role: str,
 ) -> dict:
     ctx = RunContext(
         agent_run_id=agent_run_id,
-        user_id=user_id,
-        company_id=company_id,
-        role=role,
         backend=sandbox.backend,
     )
 
@@ -63,18 +57,14 @@ if __name__ == "__main__":
     from sandbox_provider import provision_sandbox, destroy_sandbox
 
     agent_run_id = str(uuid.uuid4())
-    user_id = os.environ.get("AGENT_USER_ID", "company_1_admin")
-    company_id = os.environ.get("AGENT_COMPANY_ID", "company_1")
-    role = os.environ.get("AGENT_ROLE", "company_admin")
     prompt = os.environ.get(
         "AGENT_PROMPT",
         "List the available datasets, summarize what city data is present, and produce a brief PDF overview report. Put all outputs into the artifacts/ directory.",
     )
 
-    package_dir = build_role_filtered_package(agent_run_id, user_id, company_id, role)
-    sandbox = provision_sandbox(agent_run_id, package_dir)
+    sandbox = provision_sandbox(agent_run_id)
     try:
-        result = run_agent(agent_run_id, sandbox, prompt, user_id, company_id, role)
+        result = run_agent(agent_run_id, sandbox, prompt)
         print("result:", result)
         print("workspace:", sandbox.workspace)
     finally:

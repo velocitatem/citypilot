@@ -19,22 +19,11 @@ def _stream_key(run_id: str) -> str:
     return f"agent_run:{run_id}:events"
 
 
-def _session_user(session_id: Optional[str]) -> Optional[str]:
-    if not session_id:
-        return None
+def _session_owns_run(run_id: str, session_id: str) -> bool:
     with get_engine().begin() as conn:
         row = conn.execute(
-            text("SELECT user_id FROM sessions WHERE session_id = :sid"),
-            {"sid": session_id},
-        ).first()
-    return row.user_id if row else None
-
-
-def _user_owns_run(run_id: str, user_id: str) -> bool:
-    with get_engine().begin() as conn:
-        row = conn.execute(
-            text("SELECT 1 FROM agent_runs WHERE agent_run_id = :rid AND user_id = :uid"),
-            {"rid": run_id, "uid": user_id},
+            text("SELECT 1 FROM agent_runs WHERE agent_run_id = :rid AND session_id = :sid"),
+            {"rid": run_id, "sid": session_id},
         ).first()
     return row is not None
 
@@ -65,10 +54,8 @@ def _is_terminal(event: dict) -> bool:
 
 
 async def stream_run_events(request: Request, run_id: str) -> StreamingResponse:
-    user_id = _session_user(request.cookies.get(SESSION_COOKIE))
-    if user_id is None:
-        raise HTTPException(401, "no session")
-    if not _user_owns_run(run_id, user_id):
+    session_id = request.cookies.get(SESSION_COOKIE)
+    if not session_id or not _session_owns_run(run_id, session_id):
         raise HTTPException(404, "run not found")
 
     cursor = request.headers.get("Last-Event-ID") or "0"
