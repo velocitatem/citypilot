@@ -14,6 +14,9 @@ COPY apps/backend/pyproject.toml apps/backend/uv.loc[k] ./
 RUN uv sync --no-install-project
 
 COPY apps/backend /app
+COPY scripts /scripts
+
+ENV INIT_SQL_PATH=/scripts/init.sql
 
 EXPOSE 8000
 CMD ["uvicorn", "server:app", "--host", "0.0.0.0", "--port", "8000"]

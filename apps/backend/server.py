@@ -1,6 +1,7 @@
 import os
 from contextlib import asynccontextmanager
 from functools import lru_cache
+from pathlib import Path
 from typing import NotRequired, TypedDict
 
 from celery import Celery
@@ -15,9 +16,18 @@ from sqlalchemy import text
 from db import get_engine
 from routes import router
 
+_INIT_SQL = Path(os.environ.get("INIT_SQL_PATH", str(Path(__file__).parent.parent / "scripts" / "init.sql")))
+
+
+def _apply_schema() -> None:
+    sql = _INIT_SQL.read_text()
+    with get_engine().begin() as conn:
+        conn.execute(text(sql))
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    _apply_schema()
     yield
 
 
