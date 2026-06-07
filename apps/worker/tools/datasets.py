@@ -1,33 +1,20 @@
 """Dataset discovery and retrieval tools.
 
 search_datasets       – semantic search over Qdrant catalog (best for natural language)
-browse_datasets       – keyword search via MCP / CKAN package_search
-get_dataset_details   – resource list for a dataset via MCP / CKAN package_show
+browse_datasets       – keyword search via CKAN package_search
+get_dataset_details   – resource list for a dataset via CKAN package_show
 download_dataset_file – fetch a resource file via historical-archive or live URL
-
-The MCP server (mcp-open-data-hk) is used for all CKAN browsing operations.
-Our semantic search (Qdrant + sentence-transformers) is kept because the CKAN
-keyword search is demonstrably weaker for natural-language queries.
-download_dataset_file is kept because the MCP does not implement data download.
-
-To add a new data source for downloads, insert an entry into _DOWNLOAD_REGISTRY.
 """
 
-import asyncio
 import csv
 import io
 import json
 import os
-import urllib.parse
 from datetime import date as _date, timedelta
 from functools import lru_cache
 
 import requests
 from langchain_core.tools import tool
-from mcp_open_data_hk.server import (
-    get_dataset_details as _mcp_get_dataset_details,
-    search_datasets as _mcp_search_datasets,
-)
 from openai import OpenAI
 from qdrant_client import QdrantClient
 
@@ -40,8 +27,10 @@ MAX_PREVIEW_ROWS = 200
 MAX_TEXT_BYTES = 8_000
 
 _HK_PAGE_BASE = "https://data.gov.hk/en-data/dataset"
+_HK_CKAN_BASE = "https://data.gov.hk/en-data/api/3/action"
 _HK_GET_FILE = "https://app.data.gov.hk/v1/historical-archive/get-file"
 _HK_LIST_VER = "https://api.data.gov.hk/v1/historical-archive/list-file-versions"
+_CKAN_TIMEOUT = 15
 
 
 # ── lazy singletons ────────────────────────────────────────────────────────
@@ -58,9 +47,14 @@ def _qdrant() -> QdrantClient:
     )
 
 
-def _run(coro):
-    """Run an async coroutine from synchronous code (Celery worker context)."""
-    return asyncio.run(coro)
+# ── CKAN helpers ───────────────────────────────────────────────────────────
+def _ckan_get(action: str, params: dict) -> dict:
+    resp = requests.get(f"{_HK_CKAN_BASE}/{action}", params=params, timeout=_CKAN_TIMEOUT)
+    resp.raise_for_status()
+    data = resp.json()
+    if not data.get("success"):
+        raise RuntimeError(f"CKAN error: {data.get('error', 'unknown')}")
+    return data["result"]
 
 
 # ── download handler for HK data.gov ──────────────────────────────────────
@@ -73,18 +67,13 @@ def _hk_download_file(resource_url: str, date: str = "") -> str:
         try:
             ver_resp = requests.get(
                 _HK_LIST_VER,
-                params={
-                    "url": resource_url,
-                    "start": "20240101",
-                    "end": yesterday,
-                },
+                params={"url": resource_url, "start": "20240101", "end": yesterday},
                 timeout=15,
             )
             if ver_resp.ok:
-                ver = ver_resp.json()
-                timestamps = ver.get("timestamps", [])
+                timestamps = ver_resp.json().get("timestamps", [])
                 if timestamps:
-                    target_date = sorted(timestamps)[-1]  # most recent full timestamp
+                    target_date = sorted(timestamps)[-1]
         except Exception:
             pass
 
@@ -155,7 +144,12 @@ def dataset_tools(ctx: RunContext) -> list:  # noqa: ARG001
         or to browse by category/provider names.
         Returns count, has_more, and a list of matching datasets with their metadata.
         """
-        return _run(_mcp_search_datasets(query=query, limit=limit))
+        result = _ckan_get("package_search", {"q": query, "rows": min(limit, 1000), "start": 0})
+        return {
+            "count": result.get("count", 0),
+            "results": result.get("results", []),
+            "has_more": result.get("count", 0) > limit,
+        }
 
     @tool
     def get_dataset_details(dataset_id: str) -> dict:
@@ -165,7 +159,7 @@ def dataset_tools(ctx: RunContext) -> list:  # noqa: ARG001
         resources (each with url, name, format, description).
         Pass a resource url to download_dataset_file to retrieve its data.
         """
-        return _run(_mcp_get_dataset_details(dataset_id=dataset_id))
+        return _ckan_get("package_show", {"id": dataset_id})
 
     @tool
     def download_dataset_file(
