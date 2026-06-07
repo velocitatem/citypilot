@@ -14,6 +14,8 @@ from pathlib import Path
 from daytona import CreateSandboxFromSnapshotParams, Daytona
 from langchain_daytona import DaytonaSandbox
 
+from r2_etl import build_duckdb_from_r2
+
 log = logging.getLogger("worker.sandbox")
 
 SANDBOX_ROOT = "/home/daytona/workspace"
@@ -62,7 +64,17 @@ def provision_sandbox(agent_run_id: str) -> SandboxHandle:
         if p.is_file():
             rel = p.relative_to(_HOST_SKILLS_DIR)
             uploads.append((f"{SANDBOX_SKILLS_DIR}/{rel}", p.read_bytes()))
-    log.info("[sandbox] uploading %d files (lib + skills)", len(uploads))
+    log.info("[sandbox] running R2 ETL")
+    t_etl = time.monotonic()
+    duckdb_local = workspace / "agent.duckdb"
+    try:
+        manifest = build_duckdb_from_r2(duckdb_local)
+        log.info("[sandbox] R2 ETL done tables=%s elapsed=%.1fs", list(manifest.keys()), time.monotonic() - t_etl)
+        uploads.append((f"{SANDBOX_DATA_DIR}/agent.duckdb", duckdb_local.read_bytes()))
+    except Exception:
+        log.exception("[sandbox] R2 ETL failed — sandbox will have no data")
+
+    log.info("[sandbox] uploading %d files (lib + skills + data)", len(uploads))
     backend.upload_files(uploads)
 
     log.info("[sandbox] installing apt deps: %s", _APT_DEPS)

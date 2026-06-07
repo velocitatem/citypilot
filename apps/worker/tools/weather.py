@@ -29,6 +29,10 @@ def _get(url: str, params: dict) -> dict:
     return resp.json()
 
 
+def _tool_err(e: Exception) -> str:
+    return f"[tool_error] {type(e).__name__}: {e}"
+
+
 def weather_tools(ctx: RunContext) -> list:  # noqa: ARG001
     @tool
     def get_weather_forecast(
@@ -43,17 +47,20 @@ def weather_tools(ctx: RunContext) -> list:  # noqa: ARG001
         `forecast_days`: 1–16 (default 7).
         `temperature_unit`: "celsius" or "fahrenheit".
         """
-        params = {
-            "latitude": _HK_LAT,
-            "longitude": _HK_LON,
-            "forecast_days": max(1, min(16, forecast_days)),
-            "timezone": _HK_TZ,
-            "temperature_unit": temperature_unit,
-            "current_weather": True,
-            "hourly": "temperature_2m,precipitation,windspeed_10m,weathercode",
-            "daily": "temperature_2m_max,temperature_2m_min,precipitation_sum,sunrise,sunset",
-        }
-        return _get(_FORECAST_URL, params)
+        try:
+            params = {
+                "latitude": _HK_LAT,
+                "longitude": _HK_LON,
+                "forecast_days": max(1, min(16, forecast_days)),
+                "timezone": _HK_TZ,
+                "temperature_unit": temperature_unit,
+                "current_weather": True,
+                "hourly": "temperature_2m,precipitation,windspeed_10m,weathercode",
+                "daily": "temperature_2m_max,temperature_2m_min,precipitation_sum,sunrise,sunset",
+            }
+            return _get(_FORECAST_URL, params)
+        except Exception as e:
+            return _tool_err(e)
 
     @tool
     def get_weather_archive(start_date: str, end_date: str) -> dict:
@@ -69,18 +76,21 @@ def weather_tools(ctx: RunContext) -> list:  # noqa: ARG001
 
         Example: start_date="2023-01-01", end_date="2023-12-31" for full-year data.
         """
-        params = {
-            "latitude": _HK_LAT,
-            "longitude": _HK_LON,
-            "start_date": start_date,
-            "end_date": end_date,
-            "timezone": _HK_TZ,
-            "daily": (
-                "temperature_2m_max,temperature_2m_min,temperature_2m_mean,"
-                "precipitation_sum,windspeed_10m_max,weathercode"
-            ),
-        }
-        return _get(_ARCHIVE_URL, params)
+        try:
+            params = {
+                "latitude": _HK_LAT,
+                "longitude": _HK_LON,
+                "start_date": start_date,
+                "end_date": end_date,
+                "timezone": _HK_TZ,
+                "daily": (
+                    "temperature_2m_max,temperature_2m_min,temperature_2m_mean,"
+                    "precipitation_sum,windspeed_10m_max,weathercode"
+                ),
+            }
+            return _get(_ARCHIVE_URL, params)
+        except Exception as e:
+            return _tool_err(e)
 
     @tool
     def get_air_quality(forecast_days: int = 3) -> dict:
@@ -90,18 +100,21 @@ def weather_tools(ctx: RunContext) -> list:  # noqa: ARG001
         sulphur_dioxide, carbon_monoxide, and european_aqi / us_aqi indices.
         `forecast_days`: 1–7 (default 3).
         """
-        params = {
-            "latitude": _HK_LAT,
-            "longitude": _HK_LON,
-            "forecast_days": max(1, min(7, forecast_days)),
-            "timezone": _HK_TZ,
-            "hourly": (
-                "pm2_5,pm10,ozone,nitrogen_dioxide,"
-                "sulphur_dioxide,carbon_monoxide,"
-                "european_aqi,us_aqi"
-            ),
-        }
-        return _get(_AIR_QUALITY_URL, params)
+        try:
+            params = {
+                "latitude": _HK_LAT,
+                "longitude": _HK_LON,
+                "forecast_days": max(1, min(7, forecast_days)),
+                "timezone": _HK_TZ,
+                "hourly": (
+                    "pm2_5,pm10,ozone,nitrogen_dioxide,"
+                    "sulphur_dioxide,carbon_monoxide,"
+                    "european_aqi,us_aqi"
+                ),
+            }
+            return _get(_AIR_QUALITY_URL, params)
+        except Exception as e:
+            return _tool_err(e)
 
     @tool
     def get_elevation() -> dict:
@@ -110,7 +123,10 @@ def weather_tools(ctx: RunContext) -> list:  # noqa: ARG001
         Uses the Open-Meteo digital elevation model (90 m resolution).
         Returns {"latitude": ..., "longitude": ..., "elevation": [<metres>]}.
         """
-        params = {"latitude": _HK_LAT, "longitude": _HK_LON}
-        return _get(_ELEVATION_URL, params)
+        try:
+            params = {"latitude": _HK_LAT, "longitude": _HK_LON}
+            return _get(_ELEVATION_URL, params)
+        except Exception as e:
+            return _tool_err(e)
 
     return [get_weather_forecast, get_weather_archive, get_air_quality, get_elevation]

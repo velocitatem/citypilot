@@ -17,20 +17,28 @@ ARTIFACTS = ROOT / "artifacts"
 
 def _ddb(read_only: bool = True):
     import duckdb
+    if not read_only:
+        DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     return duckdb.connect(str(DB_PATH), read_only=read_only)
 
 
 def list_tables():
+    if not DB_PATH.exists():
+        return []
     with _ddb() as c:
         return [r[0] for r in c.execute("SHOW TABLES").fetchall()]
 
 
 def describe_table(table: str):
+    if not DB_PATH.exists():
+        raise ValueError("No database exists yet; use load_data_as_table to create one.")
     with _ddb() as c:
         return c.execute(f"DESCRIBE {table}").fetchdf().to_dict("records")
 
 
 def query_db(sql: str):
+    if not DB_PATH.exists():
+        raise ValueError("No database exists yet; use load_data_as_table to create one.")
     s = sql.strip().rstrip(";")
     if ";" in s or not s.lstrip("(").lower().startswith(("select", "with")):
         raise ValueError("only single SELECT/WITH allowed")

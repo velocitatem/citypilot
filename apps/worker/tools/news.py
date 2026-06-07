@@ -10,7 +10,7 @@ from functools import lru_cache
 from langchain_core.tools import tool
 from openai import OpenAI
 from qdrant_client import QdrantClient
-from qdrant_client.models import FieldCondition, Filter, MatchValue, OrderBy, Range
+from qdrant_client.models import FieldCondition, Filter, MatchValue, OrderBy
 
 from context import RunContext
 
@@ -71,23 +71,21 @@ def news_tools(ctx: RunContext) -> list:  # noqa: ARG001
         range. Omit both to get the latest `limit` articles.
         Returns a list of {title, url, date, author}.
         """
-        conditions = [FieldCondition(key="source", match=MatchValue(value=SOURCE))]
-        date_range: dict = {}
-        if since:
-            date_range["gte"] = since
-        if until:
-            date_range["lte"] = until
-        if date_range:
-            conditions.append(FieldCondition(key="date", range=Range(**date_range)))
-
         results, _ = _qdrant().scroll(
             collection_name=COLLECTION,
-            scroll_filter=Filter(must=conditions),
-            limit=limit,
+            scroll_filter=Filter(
+                must=[FieldCondition(key="source", match=MatchValue(value=SOURCE))]
+            ),
+            limit=limit * 10 if (since or until) else limit,
             order_by=OrderBy(key="date", direction="desc"),
             with_payload=True,
             with_vectors=False,
         )
-        return [pt.payload for pt in results if pt.payload]
+        records = [pt.payload for pt in results if pt.payload]
+        if since:
+            records = [r for r in records if (r.get("date") or "") >= since]
+        if until:
+            records = [r for r in records if (r.get("date") or "") <= until]
+        return records[:limit]
 
     return [search_news, get_recent_news]

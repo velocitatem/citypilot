@@ -1,4 +1,4 @@
 .env
 data/hk_hkfp_headlines.csv
 docker-compose.yml
-docker-compose.yml
+**/__pycache__

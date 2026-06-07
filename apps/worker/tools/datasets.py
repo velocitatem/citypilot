@@ -31,6 +31,7 @@ _HK_CKAN_BASE = "https://data.gov.hk/en-data/api/3/action"
 _HK_GET_FILE = "https://app.data.gov.hk/v1/historical-archive/get-file"
 _HK_LIST_VER = "https://api.data.gov.hk/v1/historical-archive/list-file-versions"
 _CKAN_TIMEOUT = 15
+_HEADERS = {"User-Agent": "citypilot/1.0 (data.gov.hk research agent)"}
 
 
 # ── lazy singletons ────────────────────────────────────────────────────────
@@ -49,7 +50,7 @@ def _qdrant() -> QdrantClient:
 
 # ── CKAN helpers ───────────────────────────────────────────────────────────
 def _ckan_get(action: str, params: dict) -> dict:
-    resp = requests.get(f"{_HK_CKAN_BASE}/{action}", params=params, timeout=_CKAN_TIMEOUT)
+    resp = requests.get(f"{_HK_CKAN_BASE}/{action}", params=params, headers=_HEADERS, timeout=_CKAN_TIMEOUT)
     resp.raise_for_status()
     data = resp.json()
     if not data.get("success"):
@@ -68,6 +69,7 @@ def _hk_download_file(resource_url: str, date: str = "") -> str:
             ver_resp = requests.get(
                 _HK_LIST_VER,
                 params={"url": resource_url, "start": "20240101", "end": yesterday},
+                headers=_HEADERS,
                 timeout=15,
             )
             if ver_resp.ok:
@@ -80,12 +82,13 @@ def _hk_download_file(resource_url: str, date: str = "") -> str:
     archive_resp = requests.get(
         _HK_GET_FILE,
         params={"url": resource_url, "time": target_date},
+        headers=_HEADERS,
         timeout=30,
     )
     if archive_resp.status_code == 200 and archive_resp.content:
         return _parse_response(archive_resp, resource_url)
 
-    live_resp = requests.get(resource_url, timeout=30)
+    live_resp = requests.get(resource_url, headers=_HEADERS, timeout=30)
     live_resp.raise_for_status()
     return _parse_response(live_resp, resource_url)
 
@@ -108,6 +111,10 @@ _DOWNLOAD_REGISTRY: dict[str, callable] = {
 }
 
 
+def _tool_err(e: Exception) -> str:
+    return f"[tool_error] {type(e).__name__}: {e}"
+
+
 # ── tool factory ───────────────────────────────────────────────────────────
 def dataset_tools(ctx: RunContext) -> list:  # noqa: ARG001
     @tool
@@ -119,22 +126,25 @@ def dataset_tools(ctx: RunContext) -> list:  # noqa: ARG001
         data_format, resource_name, source, score, and page_url.
         Follow up with get_dataset_details(dataset_id) to list downloadable files.
         """
-        resp = _openai().embeddings.create(input=[query], model=OPENAI_EMBED_MODEL)
-        vec = resp.data[0].embedding
-        response = _qdrant().query_points(
-            collection_name=COLLECTION,
-            query=vec,
-            limit=top_k,
-            with_payload=True,
-        )
-        return [
-            {
-                **(h.payload or {}),
-                "score": round(h.score, 4),
-                "page_url": f"{_HK_PAGE_BASE}/{(h.payload or {}).get('dataset_id', '')}",
-            }
-            for h in response.points
-        ]
+        try:
+            resp = _openai().embeddings.create(input=[query], model=OPENAI_EMBED_MODEL)
+            vec = resp.data[0].embedding
+            response = _qdrant().query_points(
+                collection_name=COLLECTION,
+                query=vec,
+                limit=top_k,
+                with_payload=True,
+            )
+            return [
+                {
+                    **(h.payload or {}),
+                    "score": round(h.score, 4),
+                    "page_url": f"{_HK_PAGE_BASE}/{(h.payload or {}).get('dataset_id', '')}",
+                }
+                for h in response.points
+            ]
+        except Exception as e:
+            return _tool_err(e)
 
     @tool
     def browse_datasets(query: str, limit: int = 10) -> dict:
@@ -144,12 +154,15 @@ def dataset_tools(ctx: RunContext) -> list:  # noqa: ARG001
         or to browse by category/provider names.
         Returns count, has_more, and a list of matching datasets with their metadata.
         """
-        result = _ckan_get("package_search", {"q": query, "rows": min(limit, 1000), "start": 0})
-        return {
-            "count": result.get("count", 0),
-            "results": result.get("results", []),
-            "has_more": result.get("count", 0) > limit,
-        }
+        try:
+            result = _ckan_get("package_search", {"q": query, "rows": min(limit, 1000), "start": 0})
+            return {
+                "count": result.get("count", 0),
+                "results": result.get("results", []),
+                "has_more": result.get("count", 0) > limit,
+            }
+        except Exception as e:
+            return _tool_err(e)
 
     @tool
     def get_dataset_details(dataset_id: str) -> dict:
@@ -159,7 +172,10 @@ def dataset_tools(ctx: RunContext) -> list:  # noqa: ARG001
         resources (each with url, name, format, description).
         Pass a resource url to download_dataset_file to retrieve its data.
         """
-        return _ckan_get("package_show", {"id": dataset_id})
+        try:
+            return _ckan_get("package_show", {"id": dataset_id})
+        except Exception as e:
+            return _tool_err(e)
 
     @tool
     def download_dataset_file(
@@ -175,9 +191,12 @@ def dataset_tools(ctx: RunContext) -> list:  # noqa: ARG001
         `source`: data portal (default: hk_data_gov).
         JSON and CSV are returned as JSON arrays; other formats as plain text.
         """
-        fn = _DOWNLOAD_REGISTRY.get(source)
-        if fn is None:
-            return f"Unknown source '{source}'. Available: {list(_DOWNLOAD_REGISTRY)}"
-        return fn(resource_url, date)
+        try:
+            fn = _DOWNLOAD_REGISTRY.get(source)
+            if fn is None:
+                return f"Unknown source '{source}'. Available: {list(_DOWNLOAD_REGISTRY)}"
+            return fn(resource_url, date)
+        except Exception as e:
+            return _tool_err(e)
 
     return [search_datasets, browse_datasets, get_dataset_details, download_dataset_file]
