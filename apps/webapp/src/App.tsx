@@ -579,6 +579,13 @@ export default function App() {
           <>
         <div className={`workspace ${run ? "split" : ""}`}>
           <main className="messages">
+            {active.messages.length === 0 && (
+              <div className="welcome">
+                <div className="welcome-icon"><CityIcon size={40} /></div>
+                <h1 className="welcome-title">Welcome to {env.appTitle}</h1>
+                <p className="welcome-sub">{env.appSubtitle} — ask anything about city data, districts, demographics, or planning.</p>
+              </div>
+            )}
             {active.messages.map((m) => (
               <div key={m.id} className={`row ${m.role}`}>
                 <div className={`bubble ${m.role}`}>

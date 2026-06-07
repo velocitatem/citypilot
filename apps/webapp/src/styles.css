@@ -737,3 +737,29 @@ html, body, #root {
   color: var(--muted);
   font-size: 14px;
 }
+
+/* ── welcome screen ───────────────────────────────────────────────────────── */
+.welcome {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  padding: 80px 24px;
+  text-align: center;
+  gap: 12px;
+}
+.welcome-icon { opacity: 0.5; }
+.welcome-title {
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--fg);
+  margin: 0;
+}
+.welcome-sub {
+  font-size: 14px;
+  color: var(--muted);
+  max-width: 420px;
+  line-height: 1.5;
+  margin: 0;
+}
