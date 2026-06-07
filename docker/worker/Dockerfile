@@ -15,4 +15,4 @@ RUN uv sync --frozen --no-install-project
 
 COPY apps/worker /app
 
-CMD ["celery", "-A", "tasks", "worker", "--loglevel=info"]
+CMD ["celery", "-A", "tasks", "worker", "--loglevel=info", "--concurrency=2"]
