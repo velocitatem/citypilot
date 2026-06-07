@@ -1,8 +1,14 @@
+import logging
 import os
 from contextlib import asynccontextmanager
 from functools import lru_cache
 from pathlib import Path
 from typing import NotRequired, TypedDict
+
+# basicConfig is a no-op if uvicorn already owns the root logger, so
+# we set our app loggers' level directly so they propagate to uvicorn's handler.
+for _name in ("services.chat", "services.agent_runs", "worker.tasks", "worker.sandbox", "worker.agent_runner"):
+    logging.getLogger(_name).setLevel(logging.DEBUG)
 
 from celery import Celery
 from fastapi import FastAPI, status

@@ -1,6 +1,12 @@
 import logging
 import os
 import time
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(name)s %(message)s",
+)
+
 from celery import Celery
 from celery.schedules import crontab
 

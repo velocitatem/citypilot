@@ -123,6 +123,7 @@ def chat_stream(
         api_messages.extend(history)
         api_messages.append({"role": "user", "content": text_content})
 
+        log.info("[chat] calling model=%s history_len=%d conversation_id=%s", CHAT_MODEL, len(history), conversation_id)
         stream = client.chat.completions.create(
             model=CHAT_MODEL,
             messages=api_messages,
@@ -130,9 +131,15 @@ def chat_stream(
             tool_choice="auto",
             stream=True,
         )
+        log.info("[chat] stream opened, consuming chunks ...")
 
+        chunk_count = 0
         for chunk in stream:
+            chunk_count += 1
             delta = chunk.choices[0].delta
+            finish = chunk.choices[0].finish_reason
+            if finish:
+                log.info("[chat] stream finish_reason=%s chunks=%d tool_calls_seen=%d", finish, chunk_count, len(tool_calls))
             if delta.content:
                 text_buffer.append(delta.content)
                 yield _sse({"type": "text", "delta": delta.content})
@@ -143,16 +150,23 @@ def chat_stream(
                         slot["id"] = tc.id
                     if tc.function and tc.function.name:
                         slot["name"] = tc.function.name
+                        log.info("[chat] tool call detected name=%s", tc.function.name)
                     if tc.function and tc.function.arguments:
                         slot["args"] += tc.function.arguments
+
     except Exception:
-        log.exception("chat completion failed")
+        log.exception("[chat] completion failed model=%s conversation_id=%s", CHAT_MODEL, conversation_id)
         msg = "Sorry, the chat model request failed. Check the backend logs and OPENAI_API_KEY configuration."
         user_write.join()
         append_message(conversation_id, role="agent", content=msg)
         yield _sse({"type": "text", "delta": msg})
         yield _sse({"type": "done"})
         return
+
+    if not tool_calls:
+        log.info("[chat] model responded with text only (no tool call) conversation_id=%s text_len=%d", conversation_id, len("".join(text_buffer)))
+    else:
+        log.info("[chat] processing %d tool call(s): %s", len(tool_calls), [tc["name"] for tc in tool_calls.values()])
 
     if tool_calls:
         assistant_msg: dict = {
@@ -171,18 +185,22 @@ def chat_stream(
 
         for tc in tool_calls.values():
             if tc["name"] != "spawn_research_agent":
+                log.warning("[chat] unknown tool called name=%s", tc["name"])
                 tool_result = {"error": f"unknown tool {tc['name']}"}
             else:
                 try:
                     args = json.loads(tc["args"] or "{}")
                     agent_prompt = args.get("prompt", "").strip()
+                    log.info("[chat] spawning research agent prompt_len=%d conversation_id=%s", len(agent_prompt), conversation_id)
                     if not agent_prompt:
+                        log.warning("[chat] spawn_research_agent called with empty prompt")
                         tool_result = {"error": "missing prompt"}
                     else:
                         agent_run_id = enqueue_agent_run(
                             session, agent_prompt, conversation_id=conversation_id
                         )
                         spawned_run_id = agent_run_id
+                        log.info("[chat] agent enqueued agent_run_id=%s", agent_run_id)
                         tool_result = {"agent_run_id": agent_run_id, "status": "queued"}
                         yield _sse(
                             {
@@ -192,6 +210,7 @@ def chat_stream(
                             }
                         )
                 except Exception as exc:
+                    log.exception("[chat] failed to enqueue agent conversation_id=%s", conversation_id)
                     tool_result = {"error": str(exc)}
 
             api_messages.append(
@@ -203,6 +222,7 @@ def chat_stream(
             )
 
         try:
+            log.info("[chat] sending follow-up completion after tool call conversation_id=%s", conversation_id)
             followup = client.chat.completions.create(
                 model=CHAT_MODEL,
                 messages=api_messages,
@@ -214,7 +234,7 @@ def chat_stream(
                     text_buffer.append(delta.content)
                     yield _sse({"type": "text", "delta": delta.content})
         except Exception:
-            log.exception("chat follow-up completion failed")
+            log.exception("[chat] follow-up completion failed conversation_id=%s", conversation_id)
             msg = "\n\nThe research agent was queued, but the final chat response failed to stream."
             text_buffer.append(msg)
             yield _sse({"type": "text", "delta": msg})
