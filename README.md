@@ -1,4 +1,4 @@
-# CityPilot
+![](./banner.png)
 
 **An evidence copilot for cities.**
 
