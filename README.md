@@ -15,7 +15,7 @@
 ![Docker](https://img.shields.io/badge/Docker-2496ED?style=flat-square&logo=docker&logoColor=white)
 ![Python](https://img.shields.io/badge/Python-3776AB?style=flat-square&logo=python&logoColor=white)
 
-CityPilot is a conversational agent for anyone who works with urban data but does not want to live inside terminals, dashboards, or log systems. It turns city data into answers, briefings, maps, comparisons, and decisions — in plain language.
+Agora is a conversational agent for anyone who works with urban data but does not want to live inside terminals, dashboards, or log systems. It turns city data into answers, briefings, maps, comparisons, and decisions — in plain language.
 
 ## Who it is for
 
@@ -31,13 +31,13 @@ CityPilot is a conversational agent for anyone who works with urban data but doe
 
 **Citizens** who want to understand what their city is doing and why.
 
-The common thread: they all have questions about the city. CityPilot answers them.
+The common thread: they all have questions about the city. Agora answers them.
 
 ## The problem it solves
 
 Working with city data today is slow, manual, and fragmented — spreadsheets, GIS platforms, departmental reports, consultation documents, and budget tables that do not talk to each other. Getting a single coherent answer often takes days of coordination across teams.
 
-CityPilot collapses that into a single interface.
+Agora collapses that into a single interface.
 
 ## What policymakers can do with it
 
@@ -55,11 +55,11 @@ Ask:
 
 > "Which districts combine high elderly population, poor clinic access, high heat exposure, and low public transport coverage?"
 
-CityPilot joins geospatial, demographic, health, transport, and climate layers to produce a ranked, mappable answer — without requiring the policymaker to touch a GIS tool.
+Agora joins geospatial, demographic, health, transport, and climate layers to produce a ranked, mappable answer — without requiring the policymaker to touch a GIS tool.
 
 ### Public consultation summarizer
 
-Given a set of consultation submissions, CityPilot surfaces:
+Given a set of consultation submissions, Agora surfaces:
 
 - Main public concerns
 - Recurring objections
@@ -83,7 +83,7 @@ Ask:
 
 > "If we have a fixed budget for district-level climate resilience, where should we invest first?"
 
-CityPilot ranks candidate projects by vulnerability, exposure, cost, implementation time, equity impact, and maintenance burden.
+Agora ranks candidate projects by vulnerability, exposure, cost, implementation time, equity impact, and maintenance burden.
 
 ### Document and regulatory review
 
@@ -95,7 +95,7 @@ Ask questions across long policy documents:
 
 ## Architecture
 
-CityPilot is built on the **dstack** — a personal hackathon-grade tech stack designed for fast deployment of full-featured web applications.
+Agora is built on the **dstack** — a personal hackathon-grade tech stack designed for fast deployment of full-featured web applications.
 
 - **Backend**: FastAPI (Python)
 - **Frontend**: Vite SPA

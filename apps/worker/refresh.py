@@ -112,7 +112,7 @@ def _upsert_batch(collection: str, items: list[dict]) -> None:
 # ── news refresh ───────────────────────────────────────────────────────────
 
 _HKFP_ARCHIVE = "https://hongkongfp.com/archive/"
-_UA = "Mozilla/5.0 (compatible; CityPilot-refresh/1.0)"
+_UA = "Mozilla/5.0 (compatible; Agora-refresh/1.0)"
 _DATE_RE = re.compile(r"/(\d{4})/(\d{2})/(\d{2})/")
 _NEWS_COLLECTION = "hk_news_articles"
 _NEWS_SOURCE = "hkfp_news"

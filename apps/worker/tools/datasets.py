@@ -31,7 +31,7 @@ _HK_CKAN_BASE = "https://data.gov.hk/en-data/api/3/action"
 _HK_GET_FILE = "https://app.data.gov.hk/v1/historical-archive/get-file"
 _HK_LIST_VER = "https://api.data.gov.hk/v1/historical-archive/list-file-versions"
 _CKAN_TIMEOUT = 15
-_HEADERS = {"User-Agent": "citypilot/1.0 (data.gov.hk research agent)"}
+_HEADERS = {"User-Agent": "agora/1.0 (data.gov.hk research agent)"}
 
 
 # ── lazy singletons ────────────────────────────────────────────────────────
