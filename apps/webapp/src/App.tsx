@@ -12,7 +12,6 @@ import {
 } from "./api";
 import { useRun, type RunProjection, type ToolCall } from "./runStore";
 import { env } from "./env";
-import spinnerUrl from "./spinner.svg";
 import bauhiniaUrl from "./bauhinia.svg";
 import spinnerVerbs from "./spinner_verbs.json";
 
@@ -96,7 +95,9 @@ function SpinnerWithVerb() {
   }, []);
   return (
     <span className="spinner-with-verb">
-      <img src={spinnerUrl} alt="Loading" className="spinner" width={24} height={24} />
+      <span className="typing-dots">
+        <span /><span /><span />
+      </span>
       <span className="spinner-verb">{verb}…</span>
     </span>
   );
