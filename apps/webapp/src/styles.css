@@ -714,6 +714,23 @@ html, body, #root {
 
 .ld-chart-wrap { padding: 2px 12px 0; }
 
+.ld-tline-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 6px 0 4px;
+  padding-left: 12px;
+}
+.ld-tline-item {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border: 1px solid;
+  border-radius: 3px;
+  background: white;
+  white-space: nowrap;
+}
+
 .ld-summary {
   margin: 10px 0 18px;
   font-size: 11px;
