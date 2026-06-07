@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(curl -s \"https://data.gov.hk/en/api/dataset/catalog.json\" -G --data-urlencode \"q=hospital\" --data-urlencode \"limit=5\")",
+      "Bash(python3 -m json.tool)"
+    ]
+  }
+}
