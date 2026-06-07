@@ -4,7 +4,6 @@ from urllib.parse import quote
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
-from minio.error import S3Error
 
 from services.session import SessionContext, require_session
 from services.agent_runs import enqueue_agent_run
@@ -15,7 +14,7 @@ from services.conversations import (
     list_conversations,
 )
 from services.events import stream_run_events
-from services.artifacts import ArtifactStore
+from services.artifacts import list_for_run, get_artifact
 
 router = APIRouter(prefix="/api")
 
@@ -84,8 +83,7 @@ async def run_events(run_id: str, request: Request) -> StreamingResponse:
 
 @router.get("/runs/{run_id}/artifacts")
 def list_artifacts(run_id: str, session: SessionContext = Depends(require_session)) -> list:
-    store = ArtifactStore()
-    refs = store.list_for_run(run_id, session.session_id)
+    refs = list_for_run(run_id, session.session_id)
     return [
         {
             "artifact_id": r.artifact_id,
@@ -104,27 +102,14 @@ def download_artifact(
     artifact_id: str,
     session: SessionContext = Depends(require_session),
 ):
-    store = ArtifactStore()
-    ref = store.get(run_id, artifact_id, session.session_id)
-    if ref is None:
+    result = get_artifact(run_id, artifact_id, session.session_id)
+    if result is None:
         raise HTTPException(status_code=404, detail="artifact not found")
 
-    try:
-        obj = store.client.get_object(store.bucket, ref.object_key)
-    except S3Error as exc:
-        raise HTTPException(status_code=404, detail="artifact object missing") from exc
-
-    def stream():
-        try:
-            for chunk in obj.stream(64 * 1024):
-                yield chunk
-        finally:
-            obj.close()
-            obj.release_conn()
-
+    ref, data = result
     safe_name = Path(ref.filename).name
-    return StreamingResponse(
-        stream(),
+    return Response(
+        content=data,
         media_type=ref.content_type,
         headers={"Content-Disposition": f"attachment; filename*=UTF-8''{quote(safe_name)}"},
     )

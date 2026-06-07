@@ -3,9 +3,7 @@ import os
 import uuid
 from functools import lru_cache
 from pathlib import Path
-from urllib.parse import urlparse
 
-from minio import Minio
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import Engine
 
@@ -22,38 +20,9 @@ def _engine() -> Engine:
     return create_engine(url, pool_pre_ping=True, future=True)
 
 
-def _parse_minio_endpoint(raw: str) -> tuple[str, bool]:
-    # MinIO SDK requires bare host[:port]; strip scheme/path if present.
-    if "://" in raw:
-        parsed = urlparse(raw)
-        return parsed.netloc, parsed.scheme == "https"
-    return raw.split("/", 1)[0], False
-
-
-@lru_cache(maxsize=1)
-def _store() -> tuple[Minio, str]:
-    bucket = os.environ.get("MINIO_BUCKET", "artifacts")
-    endpoint, inferred_secure = _parse_minio_endpoint(os.environ["MINIO_ENDPOINT"])
-    secure_env = os.environ.get("MINIO_SECURE")
-    secure = secure_env.lower() == "true" if secure_env is not None else inferred_secure
-    client = Minio(
-        endpoint,
-        access_key=os.environ["MINIO_ROOT_USER"],
-        secret_key=os.environ["MINIO_ROOT_PASSWORD"],
-        secure=secure,
-    )
-    if not client.bucket_exists(bucket):
-        client.make_bucket(bucket)
-    return client, bucket
-
-
 def _content_type(path: Path) -> str:
     guessed, _ = mimetypes.guess_type(str(path))
     return guessed or "application/octet-stream"
-
-
-def _object_key(run_id: str, artifact_id: str, filename: str) -> str:
-    return f"{run_id}/{artifact_id}/{filename}"
 
 
 def sync_run_artifacts(agent_run_id: str, workspace: Path) -> int:
@@ -61,25 +30,18 @@ def sync_run_artifacts(agent_run_id: str, workspace: Path) -> int:
     if not root.exists():
         return 0
 
-    client, bucket = _store()
     inserted = 0
     with _engine().begin() as conn:
         for path in sorted(p for p in root.rglob("*") if p.is_file()):
             artifact_id = str(uuid.uuid4())
             rel = path.relative_to(root).as_posix()
-            object_key = _object_key(agent_run_id, artifact_id, rel)
-            client.fput_object(
-                bucket_name=bucket,
-                object_name=object_key,
-                file_path=str(path),
-                content_type=_content_type(path),
-            )
+            data = path.read_bytes()
             conn.execute(
                 text(
                     """
                     INSERT INTO artifacts
-                        (artifact_id, agent_run_id, filename, content_type, size_bytes, object_key)
-                    VALUES (:artifact_id, :run_id, :filename, :content_type, :size_bytes, :object_key)
+                        (artifact_id, agent_run_id, filename, content_type, size_bytes, data)
+                    VALUES (:artifact_id, :run_id, :filename, :content_type, :size_bytes, :data)
                     """
                 ),
                 {
@@ -87,8 +49,8 @@ def sync_run_artifacts(agent_run_id: str, workspace: Path) -> int:
                     "run_id": agent_run_id,
                     "filename": rel,
                     "content_type": _content_type(path),
-                    "size_bytes": path.stat().st_size,
-                    "object_key": object_key,
+                    "size_bytes": len(data),
+                    "data": data,
                 },
             )
             inserted += 1
