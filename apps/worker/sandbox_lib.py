@@ -81,6 +81,21 @@ def create_plotly_chart(filename: str, figure: dict):
     return str(out)
 
 
+def load_data_as_table(table_name: str, rows: list[dict]):
+    # Sanitise name: only word characters allowed to prevent SQL injection.
+    import re
+    if not re.fullmatch(r"\w+", table_name):
+        raise ValueError(f"Invalid table name: {table_name!r}")
+    import pandas as pd
+    df = pd.DataFrame(rows)
+    with _ddb(read_only=False) as c:
+        c.register("_incoming", df)
+        c.execute(f'DROP TABLE IF EXISTS "{table_name}"')
+        c.execute(f'CREATE TABLE "{table_name}" AS SELECT * FROM _incoming')
+        count = c.execute(f'SELECT COUNT(*) FROM "{table_name}"').fetchone()[0]
+    return {"table": table_name, "rows": count, "columns": list(df.columns)}
+
+
 COMMANDS = {
     "list_tables": list_tables,
     "describe_table": describe_table,
@@ -89,6 +104,7 @@ COMMANDS = {
     "create_docx_report": create_docx_report,
     "create_xlsx_workbook": create_xlsx_workbook,
     "create_plotly_chart": create_plotly_chart,
+    "load_data_as_table": load_data_as_table,
 }
 
 

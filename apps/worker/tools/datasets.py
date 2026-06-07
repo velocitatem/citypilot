@@ -28,14 +28,14 @@ from mcp_open_data_hk.server import (
     get_dataset_details as _mcp_get_dataset_details,
     search_datasets as _mcp_search_datasets,
 )
+from openai import OpenAI
 from qdrant_client import QdrantClient
-from sentence_transformers import SentenceTransformer
 
 from context import RunContext
 
 # ── constants ──────────────────────────────────────────────────────────────
 COLLECTION = "hk_open_datasets"
-MODEL_NAME = "all-MiniLM-L6-v2"
+OPENAI_EMBED_MODEL = "text-embedding-3-small"
 MAX_PREVIEW_ROWS = 200
 MAX_TEXT_BYTES = 8_000
 
@@ -46,8 +46,8 @@ _HK_LIST_VER = "https://api.data.gov.hk/v1/historical-archive/list-file-versions
 
 # ── lazy singletons ────────────────────────────────────────────────────────
 @lru_cache(maxsize=1)
-def _model() -> SentenceTransformer:
-    return SentenceTransformer(MODEL_NAME)
+def _openai() -> OpenAI:
+    return OpenAI(api_key=os.environ["OPENAI_API_KEY"])
 
 
 @lru_cache(maxsize=1)
@@ -130,7 +130,8 @@ def dataset_tools(ctx: RunContext) -> list:  # noqa: ARG001
         data_format, resource_name, source, score, and page_url.
         Follow up with get_dataset_details(dataset_id) to list downloadable files.
         """
-        vec = _model().encode(query).tolist()
+        resp = _openai().embeddings.create(input=[query], model=OPENAI_EMBED_MODEL)
+        vec = resp.data[0].embedding
         response = _qdrant().query_points(
             collection_name=COLLECTION,
             query=vec,

@@ -13,13 +13,13 @@ Skips records whose deterministic UUID5 is already present — safe to re-run.
 Usage (from project root):
     uv run scripts/ingest_hkfp_articles.py
 
-Requires QDRANT_HOST and QDRANT_API_KEY in the project-root .env file.
+Requires QDRANT_HOST, QDRANT_API_KEY, and OPENAI_API_KEY in the project-root .env file.
 
 # /// script
 # requires-python = ">=3.11"
 # dependencies = [
 #   "qdrant-client>=1.9.0",
-#   "sentence-transformers>=3.0.0",
+#   "openai>=1.0.0",
 #   "pandas>=2.0.0",
 #   "python-dotenv>=1.0.0",
 # ]
@@ -29,21 +29,22 @@ Requires QDRANT_HOST and QDRANT_API_KEY in the project-root .env file.
 import os
 import re
 import uuid
+from functools import lru_cache
 from pathlib import Path
 
 import pandas as pd
 from dotenv import load_dotenv
+from openai import OpenAI
 from qdrant_client import QdrantClient
 from qdrant_client.models import Distance, FieldCondition, Filter, MatchValue, PointStruct, VectorParams
-from sentence_transformers import SentenceTransformer
 
 # ---------------------------------------------------------------------------
 CSV_PATH = Path("data/hk_hkfp_headlines.csv")
 COLLECTION = "hk_news_articles"
 SOURCE = "hkfp_news"
-MODEL_NAME = "all-MiniLM-L6-v2"
-VECTOR_DIM = 384
-BATCH_SIZE = 128
+OPENAI_EMBED_MODEL = "text-embedding-3-small"
+VECTOR_DIM = 1536
+BATCH_SIZE = 50
 # Fixed namespace — deterministic IDs so re-runs are idempotent.
 _NS = uuid.UUID("6ba7b810-9dad-11d1-80b4-00c04fd430c8")
 _DATE_RE = re.compile(r"/(\d{4})/(\d{2})/(\d{2})/")
@@ -77,20 +78,38 @@ def load_and_clean(path: Path) -> pd.DataFrame:
     return df.reset_index(drop=True)
 
 
+@lru_cache(maxsize=1)
+def _openai_client() -> OpenAI:
+    return OpenAI(api_key=os.environ["OPENAI_API_KEY"])
+
+
+def _embed(texts: list[str]) -> list[list[float]]:
+    resp = _openai_client().embeddings.create(input=texts, model=OPENAI_EMBED_MODEL)
+    return [item.embedding for item in resp.data]
+
+
 def ensure_collection(client: QdrantClient) -> None:
+    from qdrant_client.models import PayloadSchemaType
     names = {c.name for c in client.get_collections().collections}
-    if COLLECTION not in names:
-        client.create_collection(
-            collection_name=COLLECTION,
-            vectors_config=VectorParams(size=VECTOR_DIM, distance=Distance.COSINE),
-        )
-        print(f"[qdrant] created collection '{COLLECTION}'")
-    else:
+    if COLLECTION in names:
         info = client.get_collection(COLLECTION)
-        print(
-            f"[qdrant] collection '{COLLECTION}' exists "
-            f"({info.points_count} points)"
-        )
+        existing_dim = info.config.params.vectors.size
+        if existing_dim != VECTOR_DIM:
+            print(
+                f"[qdrant] collection '{COLLECTION}' has wrong vector dim "
+                f"({existing_dim} != {VECTOR_DIM}), deleting and recreating..."
+            )
+            client.delete_collection(COLLECTION)
+        else:
+            print(f"[qdrant] collection '{COLLECTION}' exists ({info.points_count} points)")
+            return
+    client.create_collection(
+        collection_name=COLLECTION,
+        vectors_config=VectorParams(size=VECTOR_DIM, distance=Distance.COSINE),
+    )
+    client.create_payload_index(COLLECTION, "source", PayloadSchemaType.KEYWORD)
+    client.create_payload_index(COLLECTION, "date", PayloadSchemaType.KEYWORD)
+    print(f"[qdrant] created collection '{COLLECTION}'")
 
 
 def get_existing_ids(client: QdrantClient) -> set[str]:
@@ -155,21 +174,23 @@ def main() -> None:
         print("[done] nothing new to embed.")
         return
 
-    print(f"[model] loading '{MODEL_NAME}'...")
-    model = SentenceTransformer(MODEL_NAME)
-
+    print(f"[openai] embedding with '{OPENAI_EMBED_MODEL}'...")
     total = len(new_items)
     for batch_start in range(0, total, BATCH_SIZE):
         batch = new_items[batch_start : batch_start + BATCH_SIZE]
-        vectors = model.encode(
-            [item["text"] for item in batch],
-            show_progress_bar=False,
-        ).tolist()
+        vectors = _embed([item["text"] for item in batch])
         points = [
             PointStruct(id=item["id"], vector=vec, payload=item["payload"])
             for item, vec in zip(batch, vectors)
         ]
-        client.upsert(collection_name=COLLECTION, points=points)
+        for attempt in range(3):
+            try:
+                client.upsert(collection_name=COLLECTION, points=points)
+                break
+            except Exception as exc:
+                if attempt == 2:
+                    raise
+                import time; time.sleep(2 ** attempt)
         done = min(batch_start + BATCH_SIZE, total)
         print(f"  upserted {done}/{total}", end="\r", flush=True)
 
