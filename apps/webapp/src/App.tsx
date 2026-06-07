@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { LiveDashboard } from "./LiveDashboard";
 import {
   downloadArtifact,
   chatStream,
@@ -311,6 +312,7 @@ export default function App() {
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarTab, setSidebarTab] = useState<"history" | "live">("history");
 
   const refreshConversations = useCallback(async () => {
     const list = await fetchConversations();
@@ -525,33 +527,56 @@ export default function App() {
           </button>
         </div>
         {sidebarOpen && (
-          <div className="chat-list">
-            <div className="chat-list-label">History</div>
-            {conversations.length === 0 && (
-              <div className="chat-item-sub" style={{ padding: "8px 10px" }}>
-                No chats yet
+          <>
+            <div className="sidebar-tabs">
+              <button
+                className={`sidebar-tab ${sidebarTab === "history" ? "active" : ""}`}
+                onClick={() => setSidebarTab("history")}
+              >
+                History
+              </button>
+              <button
+                className={`sidebar-tab ${sidebarTab === "live" ? "active" : ""}`}
+                onClick={() => setSidebarTab("live")}
+              >
+                Live Data
+              </button>
+            </div>
+
+            {sidebarTab === "history" && (
+              <div className="chat-list">
+                <div className="chat-list-label">History</div>
+                {conversations.length === 0 && (
+                  <div className="chat-item-sub" style={{ padding: "8px 10px" }}>
+                    No chats yet
+                  </div>
+                )}
+                {conversations.map((c) => (
+                  <button
+                    key={c.conversation_id}
+                    className={`chat-item ${
+                      c.conversation_id === active.conversationId ? "active" : ""
+                    }`}
+                    onClick={() => openConversation(c.conversation_id)}
+                    title={c.title}
+                  >
+                    <div className="chat-item-title">{c.title || "Untitled"}</div>
+                    <div className="chat-item-sub">
+                      {fmtTime(new Date(c.updated_at).getTime())}
+                    </div>
+                  </button>
+                ))}
               </div>
             )}
-            {conversations.map((c) => (
-              <button
-                key={c.conversation_id}
-                className={`chat-item ${
-                  c.conversation_id === active.conversationId ? "active" : ""
-                }`}
-                onClick={() => openConversation(c.conversation_id)}
-                title={c.title}
-              >
-                <div className="chat-item-title">{c.title || "Untitled"}</div>
-                <div className="chat-item-sub">
-                  {fmtTime(new Date(c.updated_at).getTime())}
-                </div>
-              </button>
-            ))}
-          </div>
+          </>
         )}
       </aside>
 
       <div className="main">
+        {sidebarTab === "live" ? (
+          <LiveDashboard />
+        ) : (
+          <>
         <div className={`workspace ${run ? "split" : ""}`}>
           <main className="messages">
             {active.messages.map((m) => (
@@ -590,6 +615,8 @@ export default function App() {
             </button>
           </div>
         </div>
+          </>
+        )}
       </div>
     </div>
   );
