@@ -78,18 +78,31 @@ def news_tools(ctx: RunContext) -> list:  # noqa: ARG001
         range. Omit both to get the latest `limit` articles.
         Returns a list of {title, url, date, author}.
         """
+        scroll_filter = Filter(
+            must=[FieldCondition(key="source", match=MatchValue(value=SOURCE))]
+        )
+        fetch_limit = limit * 10 if (since or until) else limit
         try:
-            results, _ = _qdrant().scroll(
-                collection_name=COLLECTION,
-                scroll_filter=Filter(
-                    must=[FieldCondition(key="source", match=MatchValue(value=SOURCE))]
-                ),
-                limit=limit * 10 if (since or until) else limit,
-                order_by=OrderBy(key="date", direction="desc"),
-                with_payload=True,
-                with_vectors=False,
-            )
+            try:
+                results, _ = _qdrant().scroll(
+                    collection_name=COLLECTION,
+                    scroll_filter=scroll_filter,
+                    limit=fetch_limit,
+                    order_by=OrderBy(key="date", direction="desc"),
+                    with_payload=True,
+                    with_vectors=False,
+                )
+            except Exception:
+                # date index is KEYWORD (no range index) — fall back to unordered scroll
+                results, _ = _qdrant().scroll(
+                    collection_name=COLLECTION,
+                    scroll_filter=scroll_filter,
+                    limit=max(fetch_limit, 500),
+                    with_payload=True,
+                    with_vectors=False,
+                )
             records = [pt.payload for pt in results if pt.payload]
+            records.sort(key=lambda r: r.get("date") or "", reverse=True)
             if since:
                 records = [r for r in records if (r.get("date") or "") >= since]
             if until:

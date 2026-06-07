@@ -102,13 +102,16 @@ def ensure_collection(client: QdrantClient) -> None:
             client.delete_collection(COLLECTION)
         else:
             print(f"[qdrant] collection '{COLLECTION}' exists ({info.points_count} points)")
+            # Ensure date index is DATETIME (range-capable) for order_by support.
+            client.create_payload_index(COLLECTION, "date", PayloadSchemaType.DATETIME)
+            print(f"[qdrant] ensured datetime index on 'date'")
             return
     client.create_collection(
         collection_name=COLLECTION,
         vectors_config=VectorParams(size=VECTOR_DIM, distance=Distance.COSINE),
     )
     client.create_payload_index(COLLECTION, "source", PayloadSchemaType.KEYWORD)
-    client.create_payload_index(COLLECTION, "date", PayloadSchemaType.KEYWORD)
+    client.create_payload_index(COLLECTION, "date", PayloadSchemaType.DATETIME)
     print(f"[qdrant] created collection '{COLLECTION}'")
 
 
