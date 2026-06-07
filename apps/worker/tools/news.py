@@ -14,6 +14,10 @@ from qdrant_client.models import FieldCondition, Filter, MatchValue, OrderBy
 
 from context import RunContext
 
+
+def _tool_err(e: Exception) -> str:
+    return f"[tool_error] {type(e).__name__}: {e}"
+
 COLLECTION = "hk_news_articles"
 SOURCE = "hkfp_news"
 OPENAI_EMBED_MODEL = "text-embedding-3-small"
@@ -45,19 +49,22 @@ def news_tools(ctx: RunContext) -> list:  # noqa: ARG001
         query. Each result includes title, url, date, author, and score.
         Always filters to source='hkfp_news' so dataset records are never mixed in.
         """
-        resp = _openai().embeddings.create(input=[query], model=OPENAI_EMBED_MODEL)
-        vec = resp.data[0].embedding
-        response = _qdrant().query_points(
-            collection_name=COLLECTION,
-            query=vec,
-            query_filter=_SOURCE_FILTER,
-            limit=top_k,
-            with_payload=True,
-        )
-        return [
-            {**(h.payload or {}), "score": round(h.score, 4)}
-            for h in response.points
-        ]
+        try:
+            resp = _openai().embeddings.create(input=[query], model=OPENAI_EMBED_MODEL)
+            vec = resp.data[0].embedding
+            response = _qdrant().query_points(
+                collection_name=COLLECTION,
+                query=vec,
+                query_filter=_SOURCE_FILTER,
+                limit=top_k,
+                with_payload=True,
+            )
+            return [
+                {**(h.payload or {}), "score": round(h.score, 4)}
+                for h in response.points
+            ]
+        except Exception as e:
+            return _tool_err(e)
 
     @tool
     def get_recent_news(
@@ -71,21 +78,24 @@ def news_tools(ctx: RunContext) -> list:  # noqa: ARG001
         range. Omit both to get the latest `limit` articles.
         Returns a list of {title, url, date, author}.
         """
-        results, _ = _qdrant().scroll(
-            collection_name=COLLECTION,
-            scroll_filter=Filter(
-                must=[FieldCondition(key="source", match=MatchValue(value=SOURCE))]
-            ),
-            limit=limit * 10 if (since or until) else limit,
-            order_by=OrderBy(key="date", direction="desc"),
-            with_payload=True,
-            with_vectors=False,
-        )
-        records = [pt.payload for pt in results if pt.payload]
-        if since:
-            records = [r for r in records if (r.get("date") or "") >= since]
-        if until:
-            records = [r for r in records if (r.get("date") or "") <= until]
-        return records[:limit]
+        try:
+            results, _ = _qdrant().scroll(
+                collection_name=COLLECTION,
+                scroll_filter=Filter(
+                    must=[FieldCondition(key="source", match=MatchValue(value=SOURCE))]
+                ),
+                limit=limit * 10 if (since or until) else limit,
+                order_by=OrderBy(key="date", direction="desc"),
+                with_payload=True,
+                with_vectors=False,
+            )
+            records = [pt.payload for pt in results if pt.payload]
+            if since:
+                records = [r for r in records if (r.get("date") or "") >= since]
+            if until:
+                records = [r for r in records if (r.get("date") or "") <= until]
+            return records[:limit]
+        except Exception as e:
+            return _tool_err(e)
 
     return [search_news, get_recent_news]
