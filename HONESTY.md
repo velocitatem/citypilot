@@ -11,9 +11,8 @@ Judges compare this against `git shortlog -sn`, so keep it honest.
 
 | Member | GitHub handle | Main contributions |
 |---|---|---|
-|  |  |  |
-|  |  |  |
-|  |  |  |
+| Daniel Rosel | velocitatem | Project scaffold, frontend/backend setup, session management, DB schema, seeding scripts, deployment, UI color/styling fixes |
+| Armand Hubler | ahubler01 | Weather tools (forecasts, air quality, elevation, geocoding), news scraping (HKFP), HK open data dataset ingestion, Plotly charts |
 
 ---
 
