@@ -88,7 +88,7 @@ function useLiveData(url: string) {
 // Left margin (ML) holds y-axis labels; right margin (MR) holds value labels.
 
 const VW = 480;
-const ML = 158, MR = 70, MT = 38, MB = 34;
+const ML = 158, MR = 70, MT = 8, MB = 34;
 const IW = VW - ML - MR; // inner chart width in SVG units
 const BH = 22;           // bar height
 const RH = 30;           // row height (bar + gap)
@@ -134,6 +134,15 @@ function HorizontalBarChart({ items, unit = "", tlines = [], zones = [], summary
   return (
     <div className="ld-chart-wrap">
       {summary && <p className="ld-summary">{summary}</p>}
+      {tlines.length > 0 && (
+        <div className="ld-tline-legend">
+          {tlines.map((tl, i) => (
+            <span key={i} className="ld-tline-item" style={{ color: tl.color, borderColor: tl.color }}>
+              {tl.label}
+            </span>
+          ))}
+        </div>
+      )}
       <svg viewBox={`0 0 ${VW} ${vbH}`} width="100%" style={{ display: "block" }}>
         <g transform={`translate(${ML},${MT})`}>
 
@@ -186,33 +195,13 @@ function HorizontalBarChart({ items, unit = "", tlines = [], zones = [], summary
             );
           })}
 
-          {/* Threshold / reference lines — labels sit in the top margin above all bars */}
+          {/* Threshold / reference lines — labels rendered as HTML legend above the chart */}
           {tlines.map((tl, i) => {
             const x = xs(tl.value);
             if (x < 0 || x > IW) return null;
-            // Stack labels from top: i=0 → y≈-26, i=1 → y≈-13, i=2 → y≈0
-            const ty = -(MT - 12) + i * 13;
-            const pillW = tl.label.length * 5.1 + 10;
             return (
-              <g key={i}>
-                <line
-                  x1={x} y1={0} x2={x} y2={innerH}
-                  stroke={tl.color} strokeWidth={1.5} strokeDasharray="5 3"
-                />
-                {/* Pill background so label is always legible regardless of zone color */}
-                <rect
-                  x={x - pillW / 2} y={ty - 8}
-                  width={pillW} height={11}
-                  rx={2} fill="white" stroke={tl.color} strokeWidth={0.75} opacity={0.96}
-                />
-                <text
-                  x={x} y={ty + 2}
-                  textAnchor="middle" dominantBaseline="middle"
-                  fontSize={8.5} fontWeight="700" fill={tl.color} fontFamily="inherit"
-                >
-                  {tl.label}
-                </text>
-              </g>
+              <line key={i} x1={x} y1={0} x2={x} y2={innerH}
+                stroke={tl.color} strokeWidth={1.5} strokeDasharray="5 3" />
             );
           })}
 
