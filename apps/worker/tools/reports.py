@@ -4,21 +4,34 @@ from context import RunContext
 from tools._invoke import call_sandbox
 
 
+def _tool_err(e: Exception) -> str:
+    return f"[tool_error] {type(e).__name__}: {e}"
+
+
 def report_tools(ctx: RunContext) -> list:
     @tool
     def create_pdf_report(filename: str, html: str) -> str:
         """Render HTML to PDF inside the sandbox under artifacts/pdf/."""
-        return call_sandbox(ctx, "create_pdf_report", {"filename": filename, "html": html})
+        try:
+            return call_sandbox(ctx, "create_pdf_report", {"filename": filename, "html": html})
+        except Exception as e:
+            return _tool_err(e)
 
     @tool
     def create_docx_report(filename: str, sections: list[dict]) -> str:
         """Write a .docx inside the sandbox under artifacts/docx/. Sections: {heading, body, level}."""
-        return call_sandbox(ctx, "create_docx_report", {"filename": filename, "sections": sections})
+        try:
+            return call_sandbox(ctx, "create_docx_report", {"filename": filename, "sections": sections})
+        except Exception as e:
+            return _tool_err(e)
 
     @tool
     def create_xlsx_workbook(filename: str, sheets: dict[str, list[dict]]) -> str:
         """Write an .xlsx inside the sandbox under artifacts/xlsx/. `sheets` maps name -> rows."""
-        return call_sandbox(ctx, "create_xlsx_workbook", {"filename": filename, "sheets": sheets})
+        try:
+            return call_sandbox(ctx, "create_xlsx_workbook", {"filename": filename, "sheets": sheets})
+        except Exception as e:
+            return _tool_err(e)
 
     @tool
     def create_plotly_chart(filename: str, figure: dict) -> str:
@@ -50,6 +63,9 @@ def report_tools(ctx: RunContext) -> list:
 
         Returns the sandbox path to the saved .html file.
         """
-        return call_sandbox(ctx, "create_plotly_chart", {"filename": filename, "figure": figure})
+        try:
+            return call_sandbox(ctx, "create_plotly_chart", {"filename": filename, "figure": figure})
+        except Exception as e:
+            return _tool_err(e)
 
     return [create_pdf_report, create_docx_report, create_xlsx_workbook, create_plotly_chart]

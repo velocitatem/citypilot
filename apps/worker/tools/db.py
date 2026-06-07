@@ -4,21 +4,34 @@ from context import RunContext
 from tools._invoke import call_sandbox
 
 
+def _tool_err(e: Exception) -> str:
+    return f"[tool_error] {type(e).__name__}: {e}"
+
+
 def db_tools(ctx: RunContext) -> list:
     @tool
     def list_tables() -> list[str]:
         """List tables in the run-local RBAC-filtered database (DuckDB, in sandbox)."""
-        return call_sandbox(ctx, "list_tables", {})
+        try:
+            return call_sandbox(ctx, "list_tables", {})
+        except Exception as e:
+            return _tool_err(e)
 
     @tool
     def describe_table(table: str) -> list[dict]:
         """Return column name and type for a table."""
-        return call_sandbox(ctx, "describe_table", {"table": table})
+        try:
+            return call_sandbox(ctx, "describe_table", {"table": table})
+        except Exception as e:
+            return _tool_err(e)
 
     @tool
     def query_db(sql: str) -> list[dict]:
         """Run a single read-only SELECT/WITH against the run-local DuckDB."""
-        return call_sandbox(ctx, "query_db", {"sql": sql})
+        try:
+            return call_sandbox(ctx, "query_db", {"sql": sql})
+        except Exception as e:
+            return _tool_err(e)
 
     @tool
     def load_data_as_table(table_name: str, rows: list[dict]) -> dict:
@@ -39,6 +52,9 @@ def db_tools(ctx: RunContext) -> list:
           2. Call load_data_as_table("weather_hk", weather_data["daily"] ...)
           3. Call query_db("SELECT ... FROM weather_hk JOIN hospital_admissions ...")
         """
-        return call_sandbox(ctx, "load_data_as_table", {"table_name": table_name, "rows": rows})
+        try:
+            return call_sandbox(ctx, "load_data_as_table", {"table_name": table_name, "rows": rows})
+        except Exception as e:
+            return _tool_err(e)
 
     return [list_tables, describe_table, query_db, load_data_as_table]
