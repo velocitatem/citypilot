@@ -8,15 +8,15 @@ import os
 from functools import lru_cache
 
 from langchain_core.tools import tool
+from openai import OpenAI
 from qdrant_client import QdrantClient
 from qdrant_client.models import FieldCondition, Filter, MatchValue, OrderBy, Range
-from sentence_transformers import SentenceTransformer
 
 from context import RunContext
 
 COLLECTION = "hk_news_articles"
 SOURCE = "hkfp_news"
-MODEL_NAME = "all-MiniLM-L6-v2"
+OPENAI_EMBED_MODEL = "text-embedding-3-small"
 
 _SOURCE_FILTER = Filter(
     must=[FieldCondition(key="source", match=MatchValue(value=SOURCE))]
@@ -24,8 +24,8 @@ _SOURCE_FILTER = Filter(
 
 
 @lru_cache(maxsize=1)
-def _model() -> SentenceTransformer:
-    return SentenceTransformer(MODEL_NAME)
+def _openai() -> OpenAI:
+    return OpenAI(api_key=os.environ["OPENAI_API_KEY"])
 
 
 @lru_cache(maxsize=1)
@@ -45,7 +45,8 @@ def news_tools(ctx: RunContext) -> list:  # noqa: ARG001
         query. Each result includes title, url, date, author, and score.
         Always filters to source='hkfp_news' so dataset records are never mixed in.
         """
-        vec = _model().encode(query).tolist()
+        resp = _openai().embeddings.create(input=[query], model=OPENAI_EMBED_MODEL)
+        vec = resp.data[0].embedding
         response = _qdrant().query_points(
             collection_name=COLLECTION,
             query=vec,

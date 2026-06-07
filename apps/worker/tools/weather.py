@@ -1,6 +1,7 @@
 """Open-Meteo weather tools — scoped to Hong Kong (22.3193° N, 114.1694° E).
 
 get_weather_forecast  – hourly / daily forecast + current conditions
+get_weather_archive   – historical daily weather back to 1940 (ERA5 reanalysis)
 get_air_quality       – PM2.5, PM10, ozone, NO2 and AQI index
 get_elevation         – terrain elevation at HK coordinates
 """
@@ -11,6 +12,7 @@ from langchain_core.tools import tool
 from context import RunContext
 
 _FORECAST_URL = "https://api.open-meteo.com/v1/forecast"
+_ARCHIVE_URL = "https://archive-api.open-meteo.com/v1/archive"
 _AIR_QUALITY_URL = "https://air-quality-api.open-meteo.com/v1/air-quality"
 _ELEVATION_URL = "https://api.open-meteo.com/v1/elevation"
 
@@ -54,6 +56,33 @@ def weather_tools(ctx: RunContext) -> list:  # noqa: ARG001
         return _get(_FORECAST_URL, params)
 
     @tool
+    def get_weather_archive(start_date: str, end_date: str) -> dict:
+        """Fetch historical daily weather for Hong Kong from the ERA5 reanalysis archive.
+
+        Returns daily arrays for temperature_2m_max, temperature_2m_min,
+        temperature_2m_mean, precipitation_sum, windspeed_10m_max, and
+        weathercode covering the full requested range.
+
+        `start_date` / `end_date`: ISO dates (YYYY-MM-DD). Archive spans 1940
+        to ~5 days before today. Use for trend analysis, anomaly detection, or
+        correlating weather with other historical datasets.
+
+        Example: start_date="2023-01-01", end_date="2023-12-31" for full-year data.
+        """
+        params = {
+            "latitude": _HK_LAT,
+            "longitude": _HK_LON,
+            "start_date": start_date,
+            "end_date": end_date,
+            "timezone": _HK_TZ,
+            "daily": (
+                "temperature_2m_max,temperature_2m_min,temperature_2m_mean,"
+                "precipitation_sum,windspeed_10m_max,weathercode"
+            ),
+        }
+        return _get(_ARCHIVE_URL, params)
+
+    @tool
     def get_air_quality(forecast_days: int = 3) -> dict:
         """Fetch air quality forecast for Hong Kong.
 
@@ -84,4 +113,4 @@ def weather_tools(ctx: RunContext) -> list:  # noqa: ARG001
         params = {"latitude": _HK_LAT, "longitude": _HK_LON}
         return _get(_ELEVATION_URL, params)
 
-    return [get_weather_forecast, get_air_quality, get_elevation]
+    return [get_weather_forecast, get_weather_archive, get_air_quality, get_elevation]
